@@ -172,7 +172,8 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
   <section>
     <h2>New encounter pair</h2>
     <div class="addcard">
-      <div class="fullrow"><input id="fLoc" placeholder="Location (Route 30, Ilex Forest…)"></div>
+      <div class="fullrow"><input id="fLoc" list="locs" autocomplete="off" placeholder="Location (Route 30, Ilex Forest…)"><div class="lookupnote" id="locNote"></div></div>
+      <datalist id="locs"></datalist>
       <div class="addgrid">
         <div class="side jared">
           <span class="who">JARED <button class="lookup" id="lkJ" type="button">⟳ look up</button></span>
@@ -524,6 +525,31 @@ $("fRName").addEventListener("blur",function(){ if(this.value.trim()&&!$("fRT1")
 $("fJName").addEventListener("change",function(){ if(this.value.trim()) lookup("j"); });
 $("fRName").addEventListener("change",function(){ if(this.value.trim()) lookup("r"); });
 
+/* ---------- HGSS location autocomplete ---------- */
+var LOCS=(function(){
+  var out=[];
+  for(var i=29;i<=48;i++) out.push("Route "+i);
+  out=out.concat(["New Bark Town","Cherrygrove City","Violet City","Azalea Town","Goldenrod City","Ecruteak City","Olivine City","Cianwood City","Mahogany Town","Blackthorn City",
+  "Dark Cave","Sprout Tower","Ruins of Alph","Union Cave","Slowpoke Well","Ilex Forest","National Park","Burned Tower","Bell Tower","Whirl Islands","Mt. Mortar","Lake of Rage","Ice Path","Dragon's Den","Tohjo Falls","Safari Zone","Cliff Cave","Victory Road","Mt. Silver"]);
+  for(var k=1;k<=28;k++){ if(k!==23) out.push("Route "+k); }
+  out=out.concat(["Pallet Town","Viridian City","Pewter City","Cerulean City","Vermilion City","Lavender Town","Celadon City","Saffron City","Fuchsia City","Cinnabar Island",
+  "Viridian Forest","Mt. Moon","Diglett's Cave","Rock Tunnel","Seafoam Islands","Cerulean Cave"]);
+  return out;
+})();
+(function(){
+  var dl=$("locs");
+  dl.innerHTML=LOCS.map(function(l){ return '<option value="'+esc(l)+'">'; }).join("");
+})();
+function checkLocDup(){
+  var v=$("fLoc").value.trim().toLowerCase(), note=$("locNote");
+  if(!v){ note.textContent=""; return; }
+  var hit=null;
+  state.pairs.forEach(function(p){ if(!hit&&p.id!==editingId&&(p.loc||"").trim().toLowerCase()===v) hit=p; });
+  note.textContent= hit ? "This area already has a pair — first-encounter rule." : "";
+}
+$("fLoc").addEventListener("input",checkLocDup);
+$("fLoc").addEventListener("change",checkLocDup);
+
 /* ---------- dex autocomplete from the embedded dex ---------- */
 (function(){
   var dl=$("dex");
@@ -681,7 +707,7 @@ function clearForm(){
   ["fJT1","fJT2","fRT1","fRT2"].forEach(function(id){$(id).value="";});
   ["fLoc","fJName","fRName"].forEach(function(id){$(id).classList.remove("miss");});
   pendingSprite.j=""; pendingSprite.r="";
-  $("noteJ").textContent=""; $("noteR").textContent="";
+  $("noteJ").textContent=""; $("noteR").textContent=""; $("locNote").textContent="";
   $("addBtnLabel").textContent="Link the pair";
   checkFormClash();
 }
