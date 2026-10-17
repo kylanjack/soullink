@@ -119,6 +119,16 @@ h2 .count{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--mute
 .pair.nouse{opacity:.55}
 .delbtn{font-size:12px;color:var(--dead);font-weight:600;padding:4px 6px}
 .delbtn.armed{background:#36141a;border-radius:5px;color:#f0b0a8}
+.ghead{display:flex;justify-content:space-between;align-items:center;width:100%;padding:9px 12px;margin:14px 0 8px;
+  background:var(--surface2);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;
+  font-weight:800;font-size:13px;color:var(--ink);text-align:left}
+.ghead:first-child{margin-top:0}
+.ghead .gcount{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted)}
+.ghead .chev{color:var(--muted);margin-right:6px}
+.ghead.Party{border-left-color:var(--ok)}
+.ghead.Boxed{border-left-color:#9a8a4c}
+.ghead.NoUse{border-left-color:#7a5c8a}
+.ghead.Missed{border-left-color:#4a5468}
 .clashtag{display:inline-block;background:#36141a;border:1px solid var(--dead);color:#f0b0a8;font-size:11px;font-weight:700;border-radius:5px;padding:2px 7px;margin:4px 0 6px}
 
 /* graveyard */
@@ -559,13 +569,36 @@ function monHTML(m,cls,hits){
   return '<div class="mon '+cls+'">'+img+'<div><div class="nm">'+esc(label)+'</div>'+spec+chipsHTML(m,hits)+'</div></div>';
 }
 
+var UIKEY="soullink-ui:"+RUN;
+var ui=loadLocal(UIKEY)||{collapsed:{}};
+function saveUI(){ try{ localStorage.setItem(UIKEY, JSON.stringify(ui)); }catch(e){} }
+
 function renderPairs(){
   var wrap=$("pairs"); wrap.innerHTML="";
   var live=state.pairs.filter(function(p){return p.status!=="Dead";});
   live.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
   $("pairCount").textContent=live.length?("("+live.length+")"):"";
   if(!live.length){ wrap.innerHTML='<div class="empty">No pairs yet.</div>'; return; }
-  live.forEach(function(p){
+  var ORDER=["Party","Boxed","NoUse","Missed"];
+  ORDER.forEach(function(st){
+    var group=live.filter(function(p){ return p.status===st; });
+    if(!group.length) return;
+    var open=!ui.collapsed[st];
+    var gh=document.createElement("button");
+    gh.type="button"; gh.className="ghead "+st;
+    gh.innerHTML='<span><span class="chev">'+(open?"\u25be":"\u25b8")+'</span>'+STATUS_LABELS[st]+'</span><span class="gcount">'+group.length+(st==="Party"?"/6":"")+'</span>';
+    wrap.appendChild(gh);
+    var body=document.createElement("div");
+    if(!open) body.style.display="none";
+    gh.addEventListener("click",function(){
+      ui.collapsed[st]=!ui.collapsed[st]; saveUI(); renderPairs();
+    });
+    wrap.appendChild(body);
+    group.forEach(function(p){ body.appendChild(makeCard(p)); });
+  });
+}
+
+function makeCard(p){
     var card=document.createElement("div");
     card.className="pair"+(p.status==="Missed"?" missed":"")+(p.status==="NoUse"?" nouse":"");
     var hits=sharedTypes(p.j,p.r);
@@ -589,8 +622,7 @@ function renderPairs(){
         }
       }
     });
-    wrap.appendChild(card);
-  });
+    return card;
 }
 
 function renderGrave(){
