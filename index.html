@@ -51,13 +51,12 @@ h1 .g{color:var(--gold)} h1 .s{color:var(--silver)}
 /* cap rail */
 .caprail{display:flex;gap:6px;overflow-x:auto;padding:10px 0 6px;scrollbar-width:thin}
 .capstop{flex-shrink:0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);text-align:center;min-width:72px}
-.capstop .who{font-size:11px;color:var(--muted);display:block}
-.capstop .lv{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px}
+.capstop .who{font-size:12px;color:var(--ink);display:block;white-space:nowrap}
+.capstop{min-width:0}
 .capstop.done{opacity:.5}
-.capstop.done .lv{text-decoration:line-through;color:var(--ok)}
 .capstop.done .who{color:var(--ok)}
 .capstop.now{border-color:var(--accent);background:var(--surface2)}
-.capstop.now .lv{color:var(--accent)}
+.capstop.now .who{color:var(--accent)}
 .capstop.johto{border-bottom:3px solid #6b5518}
 .capstop.kanto{border-bottom:3px solid #3c5068}
 
@@ -159,9 +158,9 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
       <div class="sub syncline"><span class="dot" id="syncDot"></span><span id="syncTxt">connecting…</span> · <button type="button" class="linkbtn" id="copyLink">copy share link</button></div>
     </div>
     <div class="capbox">
-      <span class="lbl">LEVEL CAP</span>
-      <div class="num" id="capNum">13</div>
-      <div class="vs" id="capVs">vs Falkner</div>
+      <span class="lbl">GYMS DEFEATED</span>
+      <div class="num" id="capNum">0/18</div>
+      <div class="vs" id="capVs">next: Falkner</div>
     </div>
   </div>
   <div class="caprail" id="caprail"></div>
@@ -215,7 +214,6 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
         <li>One faints → both are dead. Dead pairs never come back.</li>
         <li>Pairs enter and leave teams together — if Jared fields one half, Raiden fields the other.</li>
         <li>Type clause: a linked pair may not share a type. Shared type → skip the area.</li>
-        <li>No mon may exceed the next boss's ace level (cap rail above).</li>
         <li>Elite Four: deaths only apply to individuals.</li>
       </ul>
       <div class="toggle">
@@ -543,13 +541,13 @@ function renderCaps(){
     var b=document.createElement("button");
     b.type="button";
     b.className="capstop "+c.reg+(state.beaten[i]?" done":"")+(i===curIdx?" now":"");
-    b.innerHTML='<span class="who">'+(state.beaten[i]?"\u2713 ":"")+esc(c.who)+'</span><span class="lv">'+c.lv+'</span>';
+    b.innerHTML='<span class="who">'+(state.beaten[i]?"\u2713 ":"")+esc(c.who)+'</span>';
     b.addEventListener("click",function(){ state.beaten[i]=!state.beaten[i]; markDirty("_meta"); renderCaps(); });
     rail.appendChild(b);
   });
   var n=0; state.beaten.forEach(function(x){ if(x)n++; });
-  if(curIdx===-1){ $("capNum").textContent="\u2713"; $("capVs").textContent="All "+CAPS.length+" defeated"; }
-  else{ $("capNum").textContent=CAPS[curIdx].lv; $("capVs").textContent="vs "+CAPS[curIdx].who+" \u00b7 "+n+"/"+CAPS.length; }
+  $("capNum").textContent=n+"/"+CAPS.length;
+  $("capVs").textContent= curIdx===-1 ? "all clear" : "next: "+CAPS[curIdx].who;
 }
 
 function renderStats(){
