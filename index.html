@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SOUL LINK — SoulSilver</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1220; --surface:#161d2e; --surface2:#1e2740; --line:#2a3550;
+  --ink:#e9edf6; --muted:#8d99b5; --accent:#ffcb05;
+  --gold:#e3b341; --silver:#9db4cc;
+  --dead:#e3350d; --ok:#4dad5b;
+  --ball-red:#e3350d;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--ink);font-family:Manrope,sans-serif;font-size:15px;line-height:1.45;padding-bottom:60px}
+.wrap{max-width:860px;margin:0 auto;padding:0 14px}
+h1,h2{font-family:Anton,sans-serif;font-weight:400;letter-spacing:.5px}
+button{font-family:Manrope,sans-serif;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:Manrope,sans-serif;font-size:15px;background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:9px 10px;width:100%}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input.miss{border-color:var(--dead);background:#2a1218}
+::placeholder{color:var(--muted)}
+
+/* pokéball */
+.ball{display:inline-block;width:26px;height:26px;border-radius:50%;flex-shrink:0;position:relative;
+  background:linear-gradient(180deg,var(--ball-red) 0 44%,#10131f 44% 56%,#f2f5fa 56% 100%);
+  border:2px solid #10131f}
+.ball::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;
+  background:#f2f5fa;border:2px solid #10131f;transform:translate(-50%,-50%)}
+.ball.dead{filter:grayscale(1) brightness(.6)}
+
+/* header */
+header{background:linear-gradient(180deg,#141b2c,var(--bg));border-bottom:2px solid var(--ball-red);padding:18px 0 14px;margin-bottom:14px}
+.titlebar{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.titleline{display:flex;align-items:center;gap:10px}
+h1{font-size:34px;line-height:1}
+h1 .g{color:var(--gold)} h1 .s{color:var(--silver)}
+.sub{color:var(--muted);font-size:12px;margin-top:4px}
+.capbox{text-align:right;flex-shrink:0}
+.capbox .lbl{font-size:11px;color:var(--muted)}
+.capbox .num{font-family:Anton,sans-serif;font-size:44px;line-height:1;color:var(--accent)}
+.capbox .vs{font-size:12px}
+
+/* cap rail */
+.caprail{display:flex;gap:6px;overflow-x:auto;padding:10px 0 6px;scrollbar-width:thin}
+.capstop{flex-shrink:0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);text-align:center;min-width:72px}
+.capstop .who{font-size:11px;color:var(--muted);display:block}
+.capstop .lv{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px}
+.capstop.done{opacity:.5}
+.capstop.done .lv{text-decoration:line-through;color:var(--ok)}
+.capstop.done .who{color:var(--ok)}
+.capstop.now{border-color:var(--accent);background:var(--surface2)}
+.capstop.now .lv{color:var(--accent)}
+.capstop.johto{border-bottom:3px solid #6b5518}
+.capstop.kanto{border-bottom:3px solid #3c5068}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:center}
+.stat .n{font-family:Anton,sans-serif;font-size:24px}
+.stat .l{font-size:11px;color:var(--muted)}
+.stat.warn .n{color:var(--dead)}
+
+section{margin:20px 0}
+h2{font-size:20px;margin-bottom:10px;display:flex;align-items:baseline;gap:8px}
+h2 .count{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted)}
+
+/* type chips */
+.chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
+  color:#10131f;border-radius:4px;padding:2px 6px;margin:1px 2px 0 0;text-transform:uppercase;letter-spacing:.3px}
+.chip.clashhit{outline:2px solid var(--ball-red);outline-offset:1px}
+
+/* add form */
+.addcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.addgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.side{border-radius:8px;padding:10px;border:1px solid var(--line)}
+.side.jared{border-top:3px solid var(--gold)}
+.side.raiden{border-top:3px solid var(--silver)}
+.side .who{font-size:12px;font-weight:800;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.side.jared .who{color:var(--gold)} .side.raiden .who{color:var(--silver)}
+.side .row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.lookup{font-size:11px;color:var(--accent);font-weight:600;padding:2px 4px}
+.lookupnote{font-size:11px;color:var(--muted);margin-top:4px;min-height:14px}
+.fullrow{margin-bottom:10px}
+.formnote{margin-top:10px;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;display:none}
+.formnote.bad{display:block;background:#36141a;border:1px solid var(--dead);color:#f0b0a8}
+.formnote.good{display:block;background:#15301c;border:1px solid var(--ok);color:#bcd8ae}
+.primarybtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:12px;background:var(--accent);color:#10131f;font-weight:800;font-size:15px;padding:12px;border-radius:8px}
+.primarybtn .ball{width:18px;height:18px;border-width:1px}
+.primarybtn .ball::after{width:5px;height:5px;border-width:1px}
+
+/* pair cards */
+.pair{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.pair.deadp{border-color:#4a1d26;background:#20131a}
+.pair.missed{opacity:.55}
+.pair .loc{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.pair .loc .editbtn{font-size:12px;color:var(--accent);font-weight:600;padding:4px 6px}
+.linkrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:8px 0}
+.mon{min-width:0;display:flex;align-items:center;gap:8px}
+.mon img{width:48px;height:48px;image-rendering:pixelated;flex-shrink:0}
+.mon .spec{font-size:11px;color:var(--muted)}
+.mon .nm{font-weight:800;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mon.j .nm{color:var(--gold)} .mon.r .nm{color:var(--silver)}
+.mon.r{flex-direction:row-reverse;text-align:right}
+.statusrow{display:flex;gap:6px}
+.sbtn{flex:1;padding:8px 4px;border-radius:7px;border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--muted);background:var(--surface2)}
+.sbtn.on.Active{background:#15301c;border-color:var(--ok);color:#bcd8ae}
+.sbtn.on.Boxed{background:#2c2a18;border-color:#9a8a4c;color:#e0d6a0}
+.sbtn.on.Dead{background:#36141a;border-color:var(--dead);color:#f0b0a8}
+.sbtn.on.Missed{background:#1c2130;border-color:#4a5468;color:#aab4c8}
+.clashtag{display:inline-block;background:#36141a;border:1px solid var(--dead);color:#f0b0a8;font-size:11px;font-weight:700;border-radius:5px;padding:2px 7px;margin:4px 0 6px}
+
+/* graveyard */
+.grave{background:#191320;border:1px solid #3a1d2a;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grave .names{font-weight:700;color:#c99a92}
+.grave .where{font-size:12px;color:var(--muted)}
+
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+summary{font-family:Anton,sans-serif;font-size:17px;cursor:pointer;list-style:none}
+summary::before{content:"▸ ";color:var(--accent)} details[open] summary::before{content:"▾ "}
+.rules li{margin:8px 0 8px 18px;font-size:14px}
+.rules .flag{color:var(--accent);font-weight:700}
+.toggle{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13px}
+.toggle select{width:auto}
+
+.iorow{display:flex;gap:8px;margin-top:14px}
+.iobtn{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:11px;font-weight:700;font-size:13px;color:var(--muted)}
+.empty{color:var(--muted);font-size:13px;padding:14px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+#errbar{display:none;position:fixed;bottom:0;left:0;right:0;background:#36141a;color:#f0b0a8;font-size:12px;padding:8px 14px;z-index:50;font-family:'JetBrains Mono',monospace}
+@media (max-width:560px){ .addgrid{grid-template-columns:1fr} .stats{grid-template-columns:repeat(2,1fr)} h1{font-size:26px} .capbox .num{font-size:36px} .mon img{width:40px;height:40px} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="titlebar">
+    <div>
+      <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK <span class="g">J</span><span style="color:var(--muted)">×</span><span class="s">R</span></h1></div>
+      <div class="sub">SoulSilver · Jared (gold) & Raiden (silver)</div>
+    </div>
+    <div class="capbox">
+      <span class="lbl">LEVEL CAP</span>
+      <div class="num" id="capNum">13</div>
+      <div class="vs" id="capVs">vs Falkner</div>
+    </div>
+  </div>
+  <div class="caprail" id="caprail"></div>
+</div></header>
+
+<div class="wrap">
+  <div class="stats" id="stats"></div>
+
+  <section>
+    <h2>New encounter pair</h2>
+    <div class="addcard">
+      <div class="fullrow"><input id="fLoc" placeholder="Location (Route 30, Ilex Forest…)"></div>
+      <div class="addgrid">
+        <div class="side jared">
+          <span class="who">JARED <button class="lookup" id="lkJ" type="button">⟳ look up</button></span>
+          <input id="fJName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
+          <input id="fJNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
+          <div class="row"><select id="fJT1"></select><select id="fJT2"></select></div>
+          <div class="lookupnote" id="noteJ"></div>
+        </div>
+        <div class="side raiden">
+          <span class="who">RAIDEN <button class="lookup" id="lkR" type="button">⟳ look up</button></span>
+          <input id="fRName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
+          <input id="fRNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
+          <div class="row"><select id="fRT1"></select><select id="fRT2"></select></div>
+          <div class="lookupnote" id="noteR"></div>
+        </div>
+      </div>
+      <datalist id="dex"></datalist>
+      <div class="formnote" id="formNote"></div>
+      <button class="primarybtn" id="addBtn" type="button"><span class="ball"></span><span id="addBtnLabel">Link the pair</span></button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pairs <span class="count" id="pairCount"></span></h2>
+    <div id="pairs"></div>
+  </section>
+
+  <section>
+    <h2>Graveyard <span class="count" id="graveCount"></span></h2>
+    <div id="graveyard"></div>
+  </section>
+
+  <section>
+    <details>
+      <summary>Ruleset</summary>
+      <ul class="rules">
+        <li>First encounter per area only. The two catches from one area are soul-linked.</li>
+        <li>One faints → both are dead. Dead pairs never come back.</li>
+        <li>Pairs enter and leave teams together — if Jared fields one half, Raiden fields the other.</li>
+        <li>Type clause: a linked pair may not share a type. Shared type → skip the area.</li>
+        <li>No mon may exceed the next boss's ace level (cap rail above).</li>
+        <li>Elite Four: deaths only apply to individuals.</li>
+      </ul>
+      <div class="toggle">
+        <label for="clashMode">Type clause checks</label>
+        <select id="clashMode">
+          <option value="any">both types (strict)</option>
+          <option value="primary">primary type only</option>
+        </select>
+      </div>
+    </details>
+    <div class="iorow">
+      <button class="iobtn" id="exportBtn" type="button">Export save</button>
+      <button class="iobtn" id="importBtn" type="button">Import save</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+    </div>
+  </section>
+</div>
+<div id="errbar"></div>
+
+<script>
+(function(){
+"use strict";
+window.onerror=function(msg,src,line){
+  var b=document.getElementById("errbar");
+  if(b){ b.style.display="block"; b.textContent="Script error (line "+line+"): "+msg; }
+};
+
+var TYPES=["Normal","Fire","Water","Electric","Grass","Ice","Fighting","Poison","Ground","Flying","Psychic","Bug","Rock","Ghost","Dragon","Dark","Steel"];
+var TYPE_COLORS={Normal:"#A8A878",Fire:"#F08030",Water:"#6890F0",Electric:"#F8D030",Grass:"#78C850",Ice:"#98D8D8",Fighting:"#C03028",Poison:"#A040A0",Ground:"#E0C068",Flying:"#A890F0",Psychic:"#F85888",Bug:"#A8B820",Rock:"#B8A038",Ghost:"#705898",Dragon:"#7038F8",Dark:"#705848",Steel:"#B8B8D0"};
+var STATUSES=["Active","Boxed","Dead","Missed"];
+var CAPS=[
+ {who:"Falkner",lv:13,reg:"johto"},{who:"Bugsy",lv:17,reg:"johto"},{who:"Whitney",lv:19,reg:"johto"},
+ {who:"Morty",lv:25,reg:"johto"},{who:"Chuck",lv:31,reg:"johto"},{who:"Jasmine",lv:35,reg:"johto"},
+ {who:"Pryce",lv:35,reg:"johto"},{who:"Clair",lv:41,reg:"johto"},{who:"Lance",lv:50,reg:"johto"},
+ {who:"Brock",lv:54,reg:"kanto"},{who:"Misty",lv:54,reg:"kanto"},{who:"Lt. Surge",lv:53,reg:"kanto"},
+ {who:"Erika",lv:56,reg:"kanto"},{who:"Janine",lv:50,reg:"kanto"},{who:"Sabrina",lv:55,reg:"kanto"},
+ {who:"Blaine",lv:59,reg:"kanto"},{who:"Blue",lv:60,reg:"kanto"},{who:"Red",lv:88,reg:"kanto"}
+];
+/* Embedded Gen 1-4 dex, HGSS-correct typings (no Fairy retcon) — lookup works fully offline */
+var DEX={"bulbasaur":[1,"Grass","Poison"],"ivysaur":[2,"Grass","Poison"],"venusaur":[3,"Grass","Poison"],"charmander":[4,"Fire"],"charmeleon":[5,"Fire"],"charizard":[6,"Fire","Flying"],"squirtle":[7,"Water"],"wartortle":[8,"Water"],"blastoise":[9,"Water"],"caterpie":[10,"Bug"],"metapod":[11,"Bug"],"butterfree":[12,"Bug","Flying"],"weedle":[13,"Bug","Poison"],"kakuna":[14,"Bug","Poison"],"beedrill":[15,"Bug","Poison"],"pidgey":[16,"Normal","Flying"],"pidgeotto":[17,"Normal","Flying"],"pidgeot":[18,"Normal","Flying"],"rattata":[19,"Normal"],"raticate":[20,"Normal"],"spearow":[21,"Normal","Flying"],"fearow":[22,"Normal","Flying"],"ekans":[23,"Poison"],"arbok":[24,"Poison"],"pikachu":[25,"Electric"],"raichu":[26,"Electric"],"sandshrew":[27,"Ground"],"sandslash":[28,"Ground"],"nidoran-f":[29,"Poison"],"nidorina":[30,"Poison"],"nidoqueen":[31,"Poison","Ground"],"nidoran-m":[32,"Poison"],"nidorino":[33,"Poison"],"nidoking":[34,"Poison","Ground"],"clefairy":[35,"Normal"],"clefable":[36,"Normal"],"vulpix":[37,"Fire"],"ninetales":[38,"Fire"],"jigglypuff":[39,"Normal"],"wigglytuff":[40,"Normal"],"zubat":[41,"Poison","Flying"],"golbat":[42,"Poison","Flying"],"oddish":[43,"Grass","Poison"],"gloom":[44,"Grass","Poison"],"vileplume":[45,"Grass","Poison"],"paras":[46,"Bug","Grass"],"parasect":[47,"Bug","Grass"],"venonat":[48,"Bug","Poison"],"venomoth":[49,"Bug","Poison"],"diglett":[50,"Ground"],"dugtrio":[51,"Ground"],"meowth":[52,"Normal"],"persian":[53,"Normal"],"psyduck":[54,"Water"],"golduck":[55,"Water"],"mankey":[56,"Fighting"],"primeape":[57,"Fighting"],"growlithe":[58,"Fire"],"arcanine":[59,"Fire"],"poliwag":[60,"Water"],"poliwhirl":[61,"Water"],"poliwrath":[62,"Water","Fighting"],"abra":[63,"Psychic"],"kadabra":[64,"Psychic"],"alakazam":[65,"Psychic"],"machop":[66,"Fighting"],"machoke":[67,"Fighting"],"machamp":[68,"Fighting"],"bellsprout":[69,"Grass","Poison"],"weepinbell":[70,"Grass","Poison"],"victreebel":[71,"Grass","Poison"],"tentacool":[72,"Water","Poison"],"tentacruel":[73,"Water","Poison"],"geodude":[74,"Rock","Ground"],"graveler":[75,"Rock","Ground"],"golem":[76,"Rock","Ground"],"ponyta":[77,"Fire"],"rapidash":[78,"Fire"],"slowpoke":[79,"Water","Psychic"],"slowbro":[80,"Water","Psychic"],"magnemite":[81,"Electric","Steel"],"magneton":[82,"Electric","Steel"],"farfetchd":[83,"Normal","Flying"],"doduo":[84,"Normal","Flying"],"dodrio":[85,"Normal","Flying"],"seel":[86,"Water"],"dewgong":[87,"Water","Ice"],"grimer":[88,"Poison"],"muk":[89,"Poison"],"shellder":[90,"Water"],"cloyster":[91,"Water","Ice"],"gastly":[92,"Ghost","Poison"],"haunter":[93,"Ghost","Poison"],"gengar":[94,"Ghost","Poison"],"onix":[95,"Rock","Ground"],"drowzee":[96,"Psychic"],"hypno":[97,"Psychic"],"krabby":[98,"Water"],"kingler":[99,"Water"],"voltorb":[100,"Electric"],"electrode":[101,"Electric"],"exeggcute":[102,"Grass","Psychic"],"exeggutor":[103,"Grass","Psychic"],"cubone":[104,"Ground"],"marowak":[105,"Ground"],"hitmonlee":[106,"Fighting"],"hitmonchan":[107,"Fighting"],"lickitung":[108,"Normal"],"koffing":[109,"Poison"],"weezing":[110,"Poison"],"rhyhorn":[111,"Ground","Rock"],"rhydon":[112,"Ground","Rock"],"chansey":[113,"Normal"],"tangela":[114,"Grass"],"kangaskhan":[115,"Normal"],"horsea":[116,"Water"],"seadra":[117,"Water"],"goldeen":[118,"Water"],"seaking":[119,"Water"],"staryu":[120,"Water"],"starmie":[121,"Water","Psychic"],"mr-mime":[122,"Psychic"],"scyther":[123,"Bug","Flying"],"jynx":[124,"Ice","Psychic"],"electabuzz":[125,"Electric"],"magmar":[126,"Fire"],"pinsir":[127,"Bug"],"tauros":[128,"Normal"],"magikarp":[129,"Water"],"gyarados":[130,"Water","Flying"],"lapras":[131,"Water","Ice"],"ditto":[132,"Normal"],"eevee":[133,"Normal"],"vaporeon":[134,"Water"],"jolteon":[135,"Electric"],"flareon":[136,"Fire"],"porygon":[137,"Normal"],"omanyte":[138,"Rock","Water"],"omastar":[139,"Rock","Water"],"kabuto":[140,"Rock","Water"],"kabutops":[141,"Rock","Water"],"aerodactyl":[142,"Rock","Flying"],"snorlax":[143,"Normal"],"articuno":[144,"Ice","Flying"],"zapdos":[145,"Electric","Flying"],"moltres":[146,"Fire","Flying"],"dratini":[147,"Dragon"],"dragonair":[148,"Dragon"],"dragonite":[149,"Dragon","Flying"],"mewtwo":[150,"Psychic"],"mew":[151,"Psychic"],"chikorita":[152,"Grass"],"bayleef":[153,"Grass"],"meganium":[154,"Grass"],"cyndaquil":[155,"Fire"],"quilava":[156,"Fire"],"typhlosion":[157,"Fire"],"totodile":[158,"Water"],"croconaw":[159,"Water"],"feraligatr":[160,"Water"],"sentret":[161,"Normal"],"furret":[162,"Normal"],"hoothoot":[163,"Normal","Flying"],"noctowl":[164,"Normal","Flying"],"ledyba":[165,"Bug","Flying"],"ledian":[166,"Bug","Flying"],"spinarak":[167,"Bug","Poison"],"ariados":[168,"Bug","Poison"],"crobat":[169,"Poison","Flying"],"chinchou":[170,"Water","Electric"],"lanturn":[171,"Water","Electric"],"pichu":[172,"Electric"],"cleffa":[173,"Normal"],"igglybuff":[174,"Normal"],"togepi":[175,"Normal"],"togetic":[176,"Normal","Flying"],"natu":[177,"Psychic","Flying"],"xatu":[178,"Psychic","Flying"],"mareep":[179,"Electric"],"flaaffy":[180,"Electric"],"ampharos":[181,"Electric"],"bellossom":[182,"Grass"],"marill":[183,"Water"],"azumarill":[184,"Water"],"sudowoodo":[185,"Rock"],"politoed":[186,"Water"],"hoppip":[187,"Grass","Flying"],"skiploom":[188,"Grass","Flying"],"jumpluff":[189,"Grass","Flying"],"aipom":[190,"Normal"],"sunkern":[191,"Grass"],"sunflora":[192,"Grass"],"yanma":[193,"Bug","Flying"],"wooper":[194,"Water","Ground"],"quagsire":[195,"Water","Ground"],"espeon":[196,"Psychic"],"umbreon":[197,"Dark"],"murkrow":[198,"Dark","Flying"],"slowking":[199,"Water","Psychic"],"misdreavus":[200,"Ghost"],"unown":[201,"Psychic"],"wobbuffet":[202,"Psychic"],"girafarig":[203,"Normal","Psychic"],"pineco":[204,"Bug"],"forretress":[205,"Bug","Steel"],"dunsparce":[206,"Normal"],"gligar":[207,"Ground","Flying"],"steelix":[208,"Steel","Ground"],"snubbull":[209,"Normal"],"granbull":[210,"Normal"],"qwilfish":[211,"Water","Poison"],"scizor":[212,"Bug","Steel"],"shuckle":[213,"Bug","Rock"],"heracross":[214,"Bug","Fighting"],"sneasel":[215,"Dark","Ice"],"teddiursa":[216,"Normal"],"ursaring":[217,"Normal"],"slugma":[218,"Fire"],"magcargo":[219,"Fire","Rock"],"swinub":[220,"Ice","Ground"],"piloswine":[221,"Ice","Ground"],"corsola":[222,"Water","Rock"],"remoraid":[223,"Water"],"octillery":[224,"Water"],"delibird":[225,"Ice","Flying"],"mantine":[226,"Water","Flying"],"skarmory":[227,"Steel","Flying"],"houndour":[228,"Dark","Fire"],"houndoom":[229,"Dark","Fire"],"kingdra":[230,"Water","Dragon"],"phanpy":[231,"Ground"],"donphan":[232,"Ground"],"porygon2":[233,"Normal"],"stantler":[234,"Normal"],"smeargle":[235,"Normal"],"tyrogue":[236,"Fighting"],"hitmontop":[237,"Fighting"],"smoochum":[238,"Ice","Psychic"],"elekid":[239,"Electric"],"magby":[240,"Fire"],"miltank":[241,"Normal"],"blissey":[242,"Normal"],"raikou":[243,"Electric"],"entei":[244,"Fire"],"suicune":[245,"Water"],"larvitar":[246,"Rock","Ground"],"pupitar":[247,"Rock","Ground"],"tyranitar":[248,"Rock","Dark"],"lugia":[249,"Psychic","Flying"],"ho-oh":[250,"Fire","Flying"],"celebi":[251,"Psychic","Grass"],"treecko":[252,"Grass"],"grovyle":[253,"Grass"],"sceptile":[254,"Grass"],"torchic":[255,"Fire"],"combusken":[256,"Fire","Fighting"],"blaziken":[257,"Fire","Fighting"],"mudkip":[258,"Water"],"marshtomp":[259,"Water","Ground"],"swampert":[260,"Water","Ground"],"poochyena":[261,"Dark"],"mightyena":[262,"Dark"],"zigzagoon":[263,"Normal"],"linoone":[264,"Normal"],"wurmple":[265,"Bug"],"silcoon":[266,"Bug"],"beautifly":[267,"Bug","Flying"],"cascoon":[268,"Bug"],"dustox":[269,"Bug","Poison"],"lotad":[270,"Water","Grass"],"lombre":[271,"Water","Grass"],"ludicolo":[272,"Water","Grass"],"seedot":[273,"Grass"],"nuzleaf":[274,"Grass","Dark"],"shiftry":[275,"Grass","Dark"],"taillow":[276,"Normal","Flying"],"swellow":[277,"Normal","Flying"],"wingull":[278,"Water","Flying"],"pelipper":[279,"Water","Flying"],"ralts":[280,"Psychic"],"kirlia":[281,"Psychic"],"gardevoir":[282,"Psychic"],"surskit":[283,"Bug","Water"],"masquerain":[284,"Bug","Flying"],"shroomish":[285,"Grass"],"breloom":[286,"Grass","Fighting"],"slakoth":[287,"Normal"],"vigoroth":[288,"Normal"],"slaking":[289,"Normal"],"nincada":[290,"Bug","Ground"],"ninjask":[291,"Bug","Flying"],"shedinja":[292,"Bug","Ghost"],"whismur":[293,"Normal"],"loudred":[294,"Normal"],"exploud":[295,"Normal"],"makuhita":[296,"Fighting"],"hariyama":[297,"Fighting"],"azurill":[298,"Normal"],"nosepass":[299,"Rock"],"skitty":[300,"Normal"],"delcatty":[301,"Normal"],"sableye":[302,"Dark","Ghost"],"mawile":[303,"Steel"],"aron":[304,"Steel","Rock"],"lairon":[305,"Steel","Rock"],"aggron":[306,"Steel","Rock"],"meditite":[307,"Fighting","Psychic"],"medicham":[308,"Fighting","Psychic"],"electrike":[309,"Electric"],"manectric":[310,"Electric"],"plusle":[311,"Electric"],"minun":[312,"Electric"],"volbeat":[313,"Bug"],"illumise":[314,"Bug"],"roselia":[315,"Grass","Poison"],"gulpin":[316,"Poison"],"swalot":[317,"Poison"],"carvanha":[318,"Water","Dark"],"sharpedo":[319,"Water","Dark"],"wailmer":[320,"Water"],"wailord":[321,"Water"],"numel":[322,"Fire","Ground"],"camerupt":[323,"Fire","Ground"],"torkoal":[324,"Fire"],"spoink":[325,"Psychic"],"grumpig":[326,"Psychic"],"spinda":[327,"Normal"],"trapinch":[328,"Ground"],"vibrava":[329,"Ground","Dragon"],"flygon":[330,"Ground","Dragon"],"cacnea":[331,"Grass"],"cacturne":[332,"Grass","Dark"],"swablu":[333,"Normal","Flying"],"altaria":[334,"Dragon","Flying"],"zangoose":[335,"Normal"],"seviper":[336,"Poison"],"lunatone":[337,"Rock","Psychic"],"solrock":[338,"Rock","Psychic"],"barboach":[339,"Water","Ground"],"whiscash":[340,"Water","Ground"],"corphish":[341,"Water"],"crawdaunt":[342,"Water","Dark"],"baltoy":[343,"Ground","Psychic"],"claydol":[344,"Ground","Psychic"],"lileep":[345,"Rock","Grass"],"cradily":[346,"Rock","Grass"],"anorith":[347,"Rock","Bug"],"armaldo":[348,"Rock","Bug"],"feebas":[349,"Water"],"milotic":[350,"Water"],"castform":[351,"Normal"],"kecleon":[352,"Normal"],"shuppet":[353,"Ghost"],"banette":[354,"Ghost"],"duskull":[355,"Ghost"],"dusclops":[356,"Ghost"],"tropius":[357,"Grass","Flying"],"chimecho":[358,"Psychic"],"absol":[359,"Dark"],"wynaut":[360,"Psychic"],"snorunt":[361,"Ice"],"glalie":[362,"Ice"],"spheal":[363,"Ice","Water"],"sealeo":[364,"Ice","Water"],"walrein":[365,"Ice","Water"],"clamperl":[366,"Water"],"huntail":[367,"Water"],"gorebyss":[368,"Water"],"relicanth":[369,"Water","Rock"],"luvdisc":[370,"Water"],"bagon":[371,"Dragon"],"shelgon":[372,"Dragon"],"salamence":[373,"Dragon","Flying"],"beldum":[374,"Steel","Psychic"],"metang":[375,"Steel","Psychic"],"metagross":[376,"Steel","Psychic"],"regirock":[377,"Rock"],"regice":[378,"Ice"],"registeel":[379,"Steel"],"latias":[380,"Dragon","Psychic"],"latios":[381,"Dragon","Psychic"],"kyogre":[382,"Water"],"groudon":[383,"Ground"],"rayquaza":[384,"Dragon","Flying"],"jirachi":[385,"Steel","Psychic"],"deoxys":[386,"Psychic"],"turtwig":[387,"Grass"],"grotle":[388,"Grass"],"torterra":[389,"Grass","Ground"],"chimchar":[390,"Fire"],"monferno":[391,"Fire","Fighting"],"infernape":[392,"Fire","Fighting"],"piplup":[393,"Water"],"prinplup":[394,"Water"],"empoleon":[395,"Water","Steel"],"starly":[396,"Normal","Flying"],"staravia":[397,"Normal","Flying"],"staraptor":[398,"Normal","Flying"],"bidoof":[399,"Normal"],"bibarel":[400,"Normal","Water"],"kricketot":[401,"Bug"],"kricketune":[402,"Bug"],"shinx":[403,"Electric"],"luxio":[404,"Electric"],"luxray":[405,"Electric"],"budew":[406,"Grass","Poison"],"roserade":[407,"Grass","Poison"],"cranidos":[408,"Rock"],"rampardos":[409,"Rock"],"shieldon":[410,"Rock","Steel"],"bastiodon":[411,"Rock","Steel"],"burmy":[412,"Bug"],"wormadam":[413,"Bug","Grass"],"mothim":[414,"Bug","Flying"],"combee":[415,"Bug","Flying"],"vespiquen":[416,"Bug","Flying"],"pachirisu":[417,"Electric"],"buizel":[418,"Water"],"floatzel":[419,"Water"],"cherubi":[420,"Grass"],"cherrim":[421,"Grass"],"shellos":[422,"Water"],"gastrodon":[423,"Water","Ground"],"ambipom":[424,"Normal"],"drifloon":[425,"Ghost","Flying"],"drifblim":[426,"Ghost","Flying"],"buneary":[427,"Normal"],"lopunny":[428,"Normal"],"mismagius":[429,"Ghost"],"honchkrow":[430,"Dark","Flying"],"glameow":[431,"Normal"],"purugly":[432,"Normal"],"chingling":[433,"Psychic"],"stunky":[434,"Poison","Dark"],"skuntank":[435,"Poison","Dark"],"bronzor":[436,"Steel","Psychic"],"bronzong":[437,"Steel","Psychic"],"bonsly":[438,"Rock"],"mime-jr":[439,"Psychic"],"happiny":[440,"Normal"],"chatot":[441,"Normal","Flying"],"spiritomb":[442,"Ghost","Dark"],"gible":[443,"Dragon","Ground"],"gabite":[444,"Dragon","Ground"],"garchomp":[445,"Dragon","Ground"],"munchlax":[446,"Normal"],"riolu":[447,"Fighting"],"lucario":[448,"Fighting","Steel"],"hippopotas":[449,"Ground"],"hippowdon":[450,"Ground"],"skorupi":[451,"Poison","Bug"],"drapion":[452,"Poison","Dark"],"croagunk":[453,"Poison","Fighting"],"toxicroak":[454,"Poison","Fighting"],"carnivine":[455,"Grass"],"finneon":[456,"Water"],"lumineon":[457,"Water"],"mantyke":[458,"Water","Flying"],"snover":[459,"Grass","Ice"],"abomasnow":[460,"Grass","Ice"],"weavile":[461,"Dark","Ice"],"magnezone":[462,"Electric","Steel"],"lickilicky":[463,"Normal"],"rhyperior":[464,"Ground","Rock"],"tangrowth":[465,"Grass"],"electivire":[466,"Electric"],"magmortar":[467,"Fire"],"togekiss":[468,"Normal","Flying"],"yanmega":[469,"Bug","Flying"],"leafeon":[470,"Grass"],"glaceon":[471,"Ice"],"gliscor":[472,"Ground","Flying"],"mamoswine":[473,"Ice","Ground"],"porygon-z":[474,"Normal"],"gallade":[475,"Psychic","Fighting"],"probopass":[476,"Rock","Steel"],"dusknoir":[477,"Ghost"],"froslass":[478,"Ice","Ghost"],"rotom":[479,"Electric","Ghost"],"uxie":[480,"Psychic"],"mesprit":[481,"Psychic"],"azelf":[482,"Psychic"],"dialga":[483,"Steel","Dragon"],"palkia":[484,"Water","Dragon"],"heatran":[485,"Fire","Steel"],"regigigas":[486,"Normal"],"giratina":[487,"Ghost","Dragon"],"cresselia":[488,"Psychic"],"phione":[489,"Water"],"manaphy":[490,"Water"],"darkrai":[491,"Dark"],"shaymin":[492,"Grass"],"arceus":[493,"Normal"]};
+var SPRITE_BASE="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/";
+function prettify(slug){ return slug.split("-").map(function(w){ return w.charAt(0).toUpperCase()+w.slice(1); }).join(" "); }
+function editDist(a,b){
+  var m=a.length,n=b.length,row=[],i,j;
+  for(j=0;j<=n;j++)row[j]=j;
+  for(i=1;i<=m;i++){var prev=row[0];row[0]=i;
+    for(j=1;j<=n;j++){var tmp=row[j];
+      row[j]=Math.min(row[j]+1,row[j-1]+1,prev+(a[i-1]===b[j-1]?0:1));prev=tmp;}}
+  return row[n];
+}
+function nearest(slug){
+  var best=null,bd=3;
+  for(var k in DEX){
+    if(k.indexOf(slug)===0||slug.indexOf(k)===0){ var d=Math.abs(k.length-slug.length); if(d<bd){bd=d;best=k;} continue; }
+    var e=editDist(slug,k); if(e<bd){bd=e;best=k;}
+  }
+  return bd<=2?best:null;
+}
+var KEY="soullink-ss-v1";
+
+var mem=null;
+function loadState(){
+  try{ var raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){ if(mem) return mem; }
+  return null;
+}
+var savePending=false;
+function save(){
+  if(savePending) return;
+  savePending=true;
+  setTimeout(function(){
+    savePending=false;
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ mem=JSON.parse(JSON.stringify(state)); }
+  },0);
+}
+
+var state = loadState() || { pairs:[], clashMode:"any" };
+if(!Array.isArray(state.beaten)||state.beaten.length!==CAPS.length){
+  state.beaten=CAPS.map(function(_,i){ return i<(state.capIdx||0); });
+}
+var editingId=null;
+
+function $(id){ return document.getElementById(id); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+function typesOf(m){ var t=[]; if(m.t1)t.push(m.t1); if(m.t2)t.push(m.t2); return t; }
+function sharedTypes(j,r){
+  var a = state.clashMode==="primary" ? (j.t1?[j.t1]:[]) : typesOf(j);
+  var b = state.clashMode==="primary" ? (r.t1?[r.t1]:[]) : typesOf(r);
+  return a.filter(function(t){ return b.indexOf(t)!==-1; });
+}
+function chipsHTML(m,hits){
+  return typesOf(m).map(function(t){
+    var hit = hits && hits.indexOf(t)!==-1;
+    return '<span class="chip'+(hit?' clashhit':'')+'" style="background:'+(TYPE_COLORS[t]||"#999")+'">'+esc(t)+'</span>';
+  }).join("") || '<span class="chip" style="background:#555;color:#ddd">?</span>';
+}
+
+/* ---------- local dex lookup (instant, offline) ---------- */
+function slugify(s){ return s.toLowerCase().trim().replace(/[.'\u2019]/g,"").replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,""); }
+function lookup(side){
+  var nameEl=$(side==="j"?"fJName":"fRName"), note=$(side==="j"?"noteJ":"noteR");
+  var raw=nameEl.value.trim();
+  if(!raw){ note.textContent=""; return; }
+  var slug=slugify(raw);
+  var hit=DEX[slug];
+  if(!hit){
+    pendingSprite[side]="";
+    var sug=nearest(slug);
+    if(sug){
+      note.textContent="";
+      var b=document.createElement("button");
+      b.type="button"; b.className="lookup";
+      b.textContent='Did you mean '+prettify(sug)+'?';
+      b.addEventListener("click",function(ev){ ev.stopPropagation(); nameEl.value=prettify(sug); lookup(side); });
+      note.appendChild(b);
+    }else{
+      note.textContent='Not in the Gen 1\u20134 dex \u2014 check spelling or set types manually.';
+    }
+    return;
+  }
+  $(side==="j"?"fJT1":"fRT1").value=hit[1];
+  $(side==="j"?"fJT2":"fRT2").value=hit[2]||"";
+  pendingSprite[side]=SPRITE_BASE+hit[0]+".png";
+  note.textContent="\u2713 #"+hit[0]+" "+prettify(slug)+" \u2014 "+hit[1]+(hit[2]?"/"+hit[2]:"");
+  checkFormClash();
+}
+var pendingSprite={j:"",r:""};
+$("lkJ").addEventListener("click",function(){lookup("j");});
+$("lkR").addEventListener("click",function(){lookup("r");});
+$("fJName").addEventListener("blur",function(){ if(this.value.trim()&&!$("fJT1").value) lookup("j"); });
+$("fRName").addEventListener("blur",function(){ if(this.value.trim()&&!$("fRT1").value) lookup("r"); });
+/* picking from the dex autocomplete fires change → immediate lookup */
+$("fJName").addEventListener("change",function(){ if(this.value.trim()) lookup("j"); });
+$("fRName").addEventListener("change",function(){ if(this.value.trim()) lookup("r"); });
+
+/* ---------- dex autocomplete from the embedded dex ---------- */
+(function(){
+  var dl=$("dex");
+  var out=[];
+  for(var k in DEX) out.push('<option value="'+esc(prettify(k))+'">');
+  dl.innerHTML=out.join("");
+})();
+
+/* ---------- render ---------- */
+function renderCaps(){
+  var rail=$("caprail"); rail.innerHTML="";
+  var curIdx=-1;
+  for(var i=0;i<CAPS.length;i++){ if(!state.beaten[i]){ curIdx=i; break; } }
+  CAPS.forEach(function(c,i){
+    var b=document.createElement("button");
+    b.type="button";
+    b.className="capstop "+c.reg+(state.beaten[i]?" done":"")+(i===curIdx?" now":"");
+    b.innerHTML='<span class="who">'+(state.beaten[i]?"\u2713 ":"")+esc(c.who)+'</span><span class="lv">'+c.lv+'</span>';
+    b.addEventListener("click",function(){ state.beaten[i]=!state.beaten[i]; save(); renderCaps(); });
+    rail.appendChild(b);
+  });
+  var n=0; state.beaten.forEach(function(x){ if(x)n++; });
+  if(curIdx===-1){ $("capNum").textContent="\u2713"; $("capVs").textContent="All "+CAPS.length+" defeated"; }
+  else{ $("capNum").textContent=CAPS[curIdx].lv; $("capVs").textContent="vs "+CAPS[curIdx].who+" \u00b7 "+n+"/"+CAPS.length; }
+}
+
+function renderStats(){
+  var act=0,box=0,dead=0,miss=0;
+  state.pairs.forEach(function(p){ if(p.status==="Active")act++; else if(p.status==="Boxed")box++; else if(p.status==="Dead")dead++; else miss++; });
+  $("stats").innerHTML=
+    '<div class="stat'+(act>6?' warn':'')+'"><div class="n">'+act+'/6</div><div class="l">active pairs</div></div>'+
+    '<div class="stat"><div class="n">'+box+'</div><div class="l">boxed</div></div>'+
+    '<div class="stat warn"><div class="n">'+(dead*2)+'</div><div class="l">souls lost</div></div>'+
+    '<div class="stat"><div class="n">'+miss+'</div><div class="l">skipped</div></div>';
+}
+
+function monHTML(m,cls,hits){
+  var img=m.sprite?'<img src="'+esc(m.sprite)+'" alt="" onerror="this.style.display=\'none\'">':"";
+  var label=m.nick||m.name||"—";
+  var spec=(m.nick&&m.name)?'<div class="spec">'+esc(m.name)+'</div>':"";
+  return '<div class="mon '+cls+'">'+img+'<div><div class="nm">'+esc(label)+'</div>'+spec+chipsHTML(m,hits)+'</div></div>';
+}
+
+function renderPairs(){
+  var wrap=$("pairs"); wrap.innerHTML="";
+  var live=state.pairs.filter(function(p){return p.status!=="Dead";});
+  $("pairCount").textContent=live.length?("("+live.length+")"):"";
+  if(!live.length){ wrap.innerHTML='<div class="empty">No pairs yet.</div>'; return; }
+  live.forEach(function(p){
+    var card=document.createElement("div");
+    card.className="pair"+(p.status==="Missed"?" missed":"");
+    var hits=sharedTypes(p.j,p.r);
+    card.innerHTML=
+      '<div class="loc"><span>'+esc(p.loc||"Unknown area")+'</span><button class="editbtn" type="button" data-act="edit">edit</button></div>'+
+      '<div class="linkrow">'+monHTML(p.j,"j",hits)+'<span class="ball" aria-hidden="true"></span>'+monHTML(p.r,"r",hits)+'</div>'+
+      (hits.length?'<div class="clashtag">TYPE CLASH ('+hits.join(", ")+')</div>':'')+
+      '<div class="statusrow">'+STATUSES.map(function(s){
+        return '<button class="sbtn'+(p.status===s?" on "+s:"")+'" type="button" data-act="status" data-s="'+s+'">'+s+'</button>';
+      }).join("")+'</div>';
+    card.addEventListener("click",function(ev){
+      var t=ev.target.closest("button"); if(!t)return;
+      ev.stopPropagation();
+      if(t.dataset.act==="status"){ p.status=t.dataset.s; save(); renderAll(); }
+      else if(t.dataset.act==="edit"){ startEdit(p); }
+    });
+    wrap.appendChild(card);
+  });
+}
+
+function renderGrave(){
+  var wrap=$("graveyard"); wrap.innerHTML="";
+  var dead=state.pairs.filter(function(p){return p.status==="Dead";});
+  $("graveCount").textContent=dead.length?("("+dead.length+" pairs / "+dead.length*2+" souls)"):"";
+  if(!dead.length){ wrap.innerHTML='<div class="empty">No deaths yet.</div>'; return; }
+  dead.forEach(function(p){
+    var row=document.createElement("div"); row.className="grave";
+    row.innerHTML='<span class="ball dead" aria-hidden="true"></span><div style="flex:1"><div class="names">'+esc(p.j.nick||p.j.name||"?")+' × '+esc(p.r.nick||p.r.name||"?")+'</div><div class="where">'+esc(p.loc||"")+'</div></div>'+
+      '<button class="sbtn" type="button" style="flex:0 0 auto">undo</button>';
+    row.querySelector("button").addEventListener("click",function(ev){
+      ev.stopPropagation(); p.status="Boxed"; save(); renderAll();
+    });
+    wrap.appendChild(row);
+  });
+}
+
+function renderAll(){ renderCaps(); renderStats(); renderPairs(); renderGrave(); checkFormClash(); }
+
+/* ---------- form ---------- */
+function fillTypeSelect(id,blank){
+  $(id).innerHTML='<option value="">'+blank+'</option>'+TYPES.map(function(t){return '<option>'+t+'</option>';}).join("");
+}
+fillTypeSelect("fJT1","Type 1"); fillTypeSelect("fJT2","Type 2");
+fillTypeSelect("fRT1","Type 1"); fillTypeSelect("fRT2","Type 2");
+
+function formMons(){
+  return {
+    j:{name:$("fJName").value.trim(), nick:$("fJNick").value.trim(), t1:$("fJT1").value, t2:$("fJT2").value, sprite:pendingSprite.j},
+    r:{name:$("fRName").value.trim(), nick:$("fRNick").value.trim(), t1:$("fRT1").value, t2:$("fRT2").value, sprite:pendingSprite.r}
+  };
+}
+function setNote(cls,msg){ var n=$("formNote"); n.className="formnote"+(cls?" "+cls:""); n.textContent=msg||""; }
+function checkFormClash(){
+  var m=formMons();
+  if(!(m.j.t1&&m.r.t1)){ setNote("",""); return; }
+  var hits=sharedTypes(m.j,m.r);
+  if(hits.length){ setNote("bad","Shared type ("+hits.join(", ")+") — will be logged as Missed."); }
+  else{ setNote("good","✓ No type overlap."); }
+}
+["fJT1","fJT2","fRT1","fRT2"].forEach(function(id){ $(id).addEventListener("change",checkFormClash); });
+
+function startEdit(p){
+  editingId=p.id;
+  $("fLoc").value=p.loc;
+  $("fJName").value=p.j.name; $("fJNick").value=p.j.nick||""; $("fJT1").value=p.j.t1||""; $("fJT2").value=p.j.t2||"";
+  $("fRName").value=p.r.name; $("fRNick").value=p.r.nick||""; $("fRT1").value=p.r.t1||""; $("fRT2").value=p.r.t2||"";
+  pendingSprite.j=p.j.sprite||""; pendingSprite.r=p.r.sprite||"";
+  $("addBtnLabel").textContent="Save changes";
+  checkFormClash();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function clearForm(){
+  editingId=null;
+  ["fLoc","fJName","fJNick","fRName","fRNick"].forEach(function(id){$(id).value="";});
+  ["fJT1","fJT2","fRT1","fRT2"].forEach(function(id){$(id).value="";});
+  ["fLoc","fJName","fRName"].forEach(function(id){$(id).classList.remove("miss");});
+  pendingSprite.j=""; pendingSprite.r="";
+  $("noteJ").textContent=""; $("noteR").textContent="";
+  $("addBtnLabel").textContent="Link the pair";
+  checkFormClash();
+}
+
+$("addBtn").addEventListener("click",function(){
+  var m=formMons();
+  var missing=[];
+  [["fLoc",$("fLoc").value.trim()],["fJName",m.j.name],["fRName",m.r.name]].forEach(function(x){
+    $(x[0]).classList.toggle("miss",!x[1]);
+    if(!x[1]) missing.push(x[0]==="fLoc"?"location":(x[0]==="fJName"?"Jared's mon":"Raiden's mon"));
+  });
+  if(missing.length){ setNote("bad","Missing: "+missing.join(", ")+"."); return; }
+  var loc=$("fLoc").value.trim();
+  var wasEditing=!!editingId;
+  if(editingId){
+    var p=null;
+    for(var i=0;i<state.pairs.length;i++){ if(state.pairs[i].id===editingId){ p=state.pairs[i]; break; } }
+    if(p){ p.loc=loc; p.j=m.j; p.r=m.r; }
+  }else{
+    var hits=sharedTypes(m.j,m.r);
+    state.pairs.unshift({id:uid(),loc:loc,j:m.j,r:m.r,status:hits.length?"Missed":"Boxed"});
+  }
+  save(); clearForm(); renderAll();
+  setNote("good", wasEditing ? "✓ Saved." : "✓ Pair linked.");
+});
+
+$("clashMode").addEventListener("change",function(e){
+  state.clashMode=e.target.value; save(); renderAll();
+});
+$("clashMode").value=state.clashMode;
+
+/* ---------- export / import ---------- */
+$("exportBtn").addEventListener("click",function(){
+  var blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="soullink-save-"+new Date().toISOString().slice(0,10)+".json";
+  a.click(); URL.revokeObjectURL(a.href);
+});
+$("importBtn").addEventListener("click",function(){ $("importFile").click(); });
+$("importFile").addEventListener("change",function(e){
+  var f=e.target.files[0]; if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var next=JSON.parse(r.result);
+      if(!next||!Array.isArray(next.pairs)) throw new Error("bad shape");
+      state=next;
+      if(!Array.isArray(state.beaten)||state.beaten.length!==CAPS.length){
+        state.beaten=CAPS.map(function(_,i){ return i<(state.capIdx||0); });
+      }
+      if(!state.clashMode)state.clashMode="any";
+      save(); $("clashMode").value=state.clashMode; renderAll();
+      setNote("good","✓ Save imported — "+state.pairs.length+" pairs.");
+    }catch(err){ setNote("bad","That file isn't a valid Soul Link save."); }
+  };
+  r.readAsText(f);
+  e.target.value="";
+});
+
+renderAll();
+})();
+</script>
+</body>
+</html>
