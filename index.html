@@ -39,6 +39,10 @@ header{background:linear-gradient(180deg,#141b2c,var(--bg));border-bottom:2px so
 h1{font-size:34px;line-height:1}
 h1 .g{color:var(--gold)} h1 .s{color:var(--silver)}
 .sub{color:var(--muted);font-size:12px;margin-top:4px}
+.syncline{display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.ok{background:var(--ok)} .dot.syncing{background:var(--accent)} .dot.offline{background:var(--dead)}
+.linkbtn{color:var(--accent);font-size:12px;font-weight:600;padding:2px 4px}
 .capbox{text-align:right;flex-shrink:0}
 .capbox .lbl{font-size:11px;color:var(--muted)}
 .capbox .num{font-family:Anton,sans-serif;font-size:44px;line-height:1;color:var(--accent)}
@@ -139,6 +143,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
     <div>
       <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK <span class="g">J</span><span style="color:var(--muted)">×</span><span class="s">R</span></h1></div>
       <div class="sub">SoulSilver · Jared (gold) & Raiden (silver)</div>
+      <div class="sub syncline"><span class="dot" id="syncDot"></span><span id="syncTxt">connecting…</span> · <button type="button" class="linkbtn" id="copyLink">copy share link</button></div>
     </div>
     <div class="capbox">
       <span class="lbl">LEVEL CAP</span>
@@ -255,11 +260,22 @@ function nearest(slug){
   }
   return bd<=2?best:null;
 }
-var KEY="soullink-ss-v1";
+/* ---------- run code (the URL is the invite) ---------- */
+var NEW_RUN=false;
+var RUN=(function(){
+  var m=location.search.match(/[?&]run=([a-z0-9]+)/i);
+  if(m) return m[1].toLowerCase();
+  NEW_RUN=true;
+  var abc="abcdefghjkmnpqrstuvwxyz23456789", code="";
+  for(var i=0;i<10;i++) code+=abc[Math.floor(Math.random()*abc.length)];
+  try{ history.replaceState(null,"",location.pathname+"?run="+code); }catch(e){}
+  return code;
+})();
+var KEY="soullink-ss-v2:"+RUN;
 
 var mem=null;
-function loadState(){
-  try{ var raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){ if(mem) return mem; }
+function loadLocal(k){
+  try{ var raw=localStorage.getItem(k); if(raw) return JSON.parse(raw); }catch(e){ if(mem) return mem; }
   return null;
 }
 var savePending=false;
@@ -272,11 +288,146 @@ function save(){
   },0);
 }
 
-var state = loadState() || { pairs:[], clashMode:"any" };
-if(!Array.isArray(state.beaten)||state.beaten.length!==CAPS.length){
-  state.beaten=CAPS.map(function(_,i){ return i<(state.capIdx||0); });
+function normalize(st){
+  if(!st||!Array.isArray(st.pairs)) st={pairs:[]};
+  if(!Array.isArray(st.beaten)||st.beaten.length!==CAPS.length){
+    st.beaten=CAPS.map(function(_,i){ return i<(st.capIdx||0); });
+  }
+  if(!st.clashMode) st.clashMode="any";
+  var t=Date.now();
+  st.pairs.forEach(function(p,i){ if(!p.ts) p.ts=t-i; });
+  return st;
 }
+
+var state = loadLocal(KEY);
+if(!state && NEW_RUN) state = loadLocal("soullink-ss-v1"); /* migrate pre-sync save into the new run */
+state = normalize(state || { pairs:[], clashMode:"any" });
 var editingId=null;
+
+/* ---------- Supabase sync ---------- */
+var SB_URL="https://twfrvoelwdizseunrrzj.supabase.co";
+var SB_KEY="sb_publishable_4ZsqPQ8cCckNizfdbugc4w_F9PDlwvD";
+var TABLE="soullink_rows";
+function sbHeaders(extra){
+  var h={"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"};
+  if(extra) for(var k in extra) h[k]=extra[k];
+  return h;
+}
+function sbFetchAll(){
+  return fetch(SB_URL+"/rest/v1/"+TABLE+"?run=eq."+RUN+"&select=id,data",{headers:sbHeaders()})
+    .then(function(r){ if(!r.ok) throw new Error("fetch "+r.status); return r.json(); });
+}
+function sbUpsert(rows){
+  return fetch(SB_URL+"/rest/v1/"+TABLE+"?on_conflict=run,id",{
+    method:"POST",
+    headers:sbHeaders({"Prefer":"resolution=merge-duplicates,return=minimal"}),
+    body:JSON.stringify(rows)
+  }).then(function(r){ if(!r.ok) throw new Error("push "+r.status); });
+}
+function sbDeleteRun(){
+  return fetch(SB_URL+"/rest/v1/"+TABLE+"?run=eq."+RUN,{method:"DELETE",headers:sbHeaders()})
+    .then(function(r){ if(!r.ok) throw new Error("delete "+r.status); });
+}
+
+function setSync(st){
+  var d=$("syncDot"), t=$("syncTxt");
+  if(!d) return;
+  d.className="dot "+st;
+  t.textContent= st==="ok" ? "synced" : st==="syncing" ? "syncing…" : "offline — showing cached";
+}
+
+function findPair(id){
+  for(var i=0;i<state.pairs.length;i++){ if(state.pairs[i].id===id) return state.pairs[i]; }
+  return null;
+}
+
+var dirty={}, inflight=null, pushTimer=null, firstSyncDone=false;
+function markDirty(id){ dirty[id]=true; save(); schedulePush(); }
+function markAllDirty(){ dirty._meta=true; state.pairs.forEach(function(p){ dirty[p.id]=true; }); save(); schedulePush(); }
+function schedulePush(){ if(!pushTimer){ pushTimer=setTimeout(doPush,400); } }
+function doPush(){
+  pushTimer=null;
+  if(inflight){ schedulePush(); return; }
+  var ids=Object.keys(dirty);
+  if(!ids.length) return;
+  inflight=ids; dirty={};
+  setSync("syncing");
+  var rows=[];
+  ids.forEach(function(id){
+    if(id==="_meta"){ rows.push({run:RUN,id:"_meta",data:{beaten:state.beaten,clashMode:state.clashMode}}); }
+    else{ var p=findPair(id); if(p) rows.push({run:RUN,id:id,data:p}); }
+  });
+  var done=function(ok){
+    if(!ok) ids.forEach(function(id){ dirty[id]=true; });
+    inflight=null;
+    if(Object.keys(dirty).length){ setSync(ok?"syncing":"offline"); schedulePush(); }
+    else setSync(ok?"ok":"offline");
+  };
+  if(!rows.length){ done(true); return; }
+  sbUpsert(rows).then(function(){ done(true); }).catch(function(){ done(false); });
+}
+
+function pendingIds(){
+  var set={};
+  for(var k in dirty) set[k]=true;
+  if(inflight) inflight.forEach(function(k){ set[k]=true; });
+  return set;
+}
+function applyCloud(rows){
+  var pend=pendingIds(), changed=false, cloudIds={};
+  rows.forEach(function(r){ cloudIds[r.id]=true; });
+  rows.forEach(function(r){
+    if(r.id==="_meta"){
+      if(pend._meta) return;
+      var m=r.data||{};
+      if(Array.isArray(m.beaten)&&m.beaten.length===CAPS.length&&JSON.stringify(m.beaten)!==JSON.stringify(state.beaten)){ state.beaten=m.beaten; changed=true; }
+      if(m.clashMode&&m.clashMode!==state.clashMode){ state.clashMode=m.clashMode; $("clashMode").value=state.clashMode; changed=true; }
+      return;
+    }
+    if(pend[r.id]) return;
+    var local=findPair(r.id);
+    if(!local){ state.pairs.push(r.data); changed=true; }
+    else if(JSON.stringify(local)!==JSON.stringify(r.data)){
+      state.pairs[state.pairs.indexOf(local)]=r.data; changed=true;
+    }
+  });
+  /* drop local pairs the cloud no longer has (e.g. another device did an import reset) */
+  if(firstSyncDone||rows.length){
+    for(var i=state.pairs.length-1;i>=0;i--){
+      var p=state.pairs[i];
+      if(!cloudIds[p.id]&&!pend[p.id]){ state.pairs.splice(i,1); changed=true; }
+    }
+  }
+  if(changed){ save(); renderAll(); }
+}
+
+var polling=false;
+function poll(){
+  if(document.hidden||polling) return;
+  polling=true;
+  sbFetchAll().then(function(rows){
+    polling=false;
+    if(!firstSyncDone){
+      firstSyncDone=true;
+      if(!rows.length&&(state.pairs.length||state.beaten.some(function(x){return x;}))){
+        markAllDirty(); /* this device seeds the run */
+        return;
+      }
+    }
+    applyCloud(rows);
+    if(Object.keys(dirty).length||inflight) schedulePush();
+    else setSync("ok");
+  }).catch(function(){ polling=false; setSync("offline"); });
+}
+setInterval(poll,5000);
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) poll(); });
+
+$("copyLink").addEventListener("click",function(){
+  var url=location.href, btn=this;
+  function flash(){ btn.textContent="✓ copied"; setTimeout(function(){ btn.textContent="copy share link"; },1500); }
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(flash).catch(function(){ prompt("Share this link:",url); }); }
+  else prompt("Share this link:",url);
+});
 
 function $(id){ return document.getElementById(id); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -350,7 +501,7 @@ function renderCaps(){
     b.type="button";
     b.className="capstop "+c.reg+(state.beaten[i]?" done":"")+(i===curIdx?" now":"");
     b.innerHTML='<span class="who">'+(state.beaten[i]?"\u2713 ":"")+esc(c.who)+'</span><span class="lv">'+c.lv+'</span>';
-    b.addEventListener("click",function(){ state.beaten[i]=!state.beaten[i]; save(); renderCaps(); });
+    b.addEventListener("click",function(){ state.beaten[i]=!state.beaten[i]; markDirty("_meta"); renderCaps(); });
     rail.appendChild(b);
   });
   var n=0; state.beaten.forEach(function(x){ if(x)n++; });
@@ -378,6 +529,7 @@ function monHTML(m,cls,hits){
 function renderPairs(){
   var wrap=$("pairs"); wrap.innerHTML="";
   var live=state.pairs.filter(function(p){return p.status!=="Dead";});
+  live.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
   $("pairCount").textContent=live.length?("("+live.length+")"):"";
   if(!live.length){ wrap.innerHTML='<div class="empty">No pairs yet.</div>'; return; }
   live.forEach(function(p){
@@ -394,7 +546,7 @@ function renderPairs(){
     card.addEventListener("click",function(ev){
       var t=ev.target.closest("button"); if(!t)return;
       ev.stopPropagation();
-      if(t.dataset.act==="status"){ p.status=t.dataset.s; save(); renderAll(); }
+      if(t.dataset.act==="status"){ p.status=t.dataset.s; markDirty(p.id); renderAll(); }
       else if(t.dataset.act==="edit"){ startEdit(p); }
     });
     wrap.appendChild(card);
@@ -404,6 +556,7 @@ function renderPairs(){
 function renderGrave(){
   var wrap=$("graveyard"); wrap.innerHTML="";
   var dead=state.pairs.filter(function(p){return p.status==="Dead";});
+  dead.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
   $("graveCount").textContent=dead.length?("("+dead.length+" pairs / "+dead.length*2+" souls)"):"";
   if(!dead.length){ wrap.innerHTML='<div class="empty">No deaths yet.</div>'; return; }
   dead.forEach(function(p){
@@ -411,7 +564,7 @@ function renderGrave(){
     row.innerHTML='<span class="ball dead" aria-hidden="true"></span><div style="flex:1"><div class="names">'+esc(p.j.nick||p.j.name||"?")+' × '+esc(p.r.nick||p.r.name||"?")+'</div><div class="where">'+esc(p.loc||"")+'</div></div>'+
       '<button class="sbtn" type="button" style="flex:0 0 auto">undo</button>';
     row.querySelector("button").addEventListener("click",function(ev){
-      ev.stopPropagation(); p.status="Boxed"; save(); renderAll();
+      ev.stopPropagation(); p.status="Boxed"; markDirty(p.id); renderAll();
     });
     wrap.appendChild(row);
   });
@@ -476,17 +629,19 @@ $("addBtn").addEventListener("click",function(){
   if(editingId){
     var p=null;
     for(var i=0;i<state.pairs.length;i++){ if(state.pairs[i].id===editingId){ p=state.pairs[i]; break; } }
-    if(p){ p.loc=loc; p.j=m.j; p.r=m.r; }
+    if(p){ p.loc=loc; p.j=m.j; p.r=m.r; markDirty(p.id); }
   }else{
     var hits=sharedTypes(m.j,m.r);
-    state.pairs.unshift({id:uid(),loc:loc,j:m.j,r:m.r,status:hits.length?"Missed":"Boxed"});
+    var np={id:uid(),ts:Date.now(),loc:loc,j:m.j,r:m.r,status:hits.length?"Missed":"Boxed"};
+    state.pairs.unshift(np);
+    markDirty(np.id);
   }
-  save(); clearForm(); renderAll();
+  clearForm(); renderAll();
   setNote("good", wasEditing ? "✓ Saved." : "✓ Pair linked.");
 });
 
 $("clashMode").addEventListener("change",function(e){
-  state.clashMode=e.target.value; save(); renderAll();
+  state.clashMode=e.target.value; markDirty("_meta"); renderAll();
 });
 $("clashMode").value=state.clashMode;
 
@@ -506,12 +661,11 @@ $("importFile").addEventListener("change",function(e){
     try{
       var next=JSON.parse(r.result);
       if(!next||!Array.isArray(next.pairs)) throw new Error("bad shape");
-      state=next;
-      if(!Array.isArray(state.beaten)||state.beaten.length!==CAPS.length){
-        state.beaten=CAPS.map(function(_,i){ return i<(state.capIdx||0); });
-      }
-      if(!state.clashMode)state.clashMode="any";
-      save(); $("clashMode").value=state.clashMode; renderAll();
+      state=normalize(next);
+      $("clashMode").value=state.clashMode; save(); renderAll();
+      setSync("syncing");
+      sbDeleteRun().then(function(){ markAllDirty(); })
+        .catch(function(){ markAllDirty(); });
       setNote("good","✓ Save imported — "+state.pairs.length+" pairs.");
     }catch(err){ setNote("bad","That file isn't a valid Soul Link save."); }
   };
@@ -520,6 +674,7 @@ $("importFile").addEventListener("change",function(e){
 });
 
 renderAll();
+poll();
 })();
 </script>
 </body>
