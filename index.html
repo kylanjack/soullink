@@ -43,6 +43,14 @@ h1 .g{color:var(--gold)} h1 .s{color:var(--silver)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
 .dot.ok{background:var(--ok)} .dot.syncing{background:var(--accent)} .dot.offline{background:var(--dead)}
 .linkbtn{color:var(--accent);font-size:12px;font-weight:600;padding:2px 4px}
+.attempt{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:3px 8px;white-space:nowrap;cursor:pointer}
+.attempt.armed{background:#36141a;border-color:var(--dead);color:#f0b0a8}
+.hist{display:flex;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:13px}
+.hist:last-child{border-bottom:none}
+.hist .hn{font-weight:800;color:var(--accent)}
+.hist .hd{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:12px}
+.iobtn.danger{color:var(--dead);border-color:#4a1d26}
+.iobtn.danger.armed{background:#36141a;color:#f0b0a8}
 .capbox{text-align:right;flex-shrink:0}
 .capbox .lbl{font-size:11px;color:var(--muted)}
 .capbox .num{font-family:Anton,sans-serif;font-size:44px;line-height:1;color:var(--accent)}
@@ -154,7 +162,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
 <header><div class="wrap">
   <div class="titlebar">
     <div>
-      <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK <span class="g">J</span><span style="color:var(--muted)">×</span><span class="s">R</span></h1></div>
+      <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK <span class="g">J</span><span style="color:var(--muted)">×</span><span class="s">R</span></h1><button class="attempt" id="attemptBadge" type="button">ATTEMPT 1</button></div>
       <div class="sub syncline"><span class="dot" id="syncDot"></span><span id="syncTxt">connecting…</span> · <button type="button" class="linkbtn" id="copyLink">copy share link</button></div>
     </div>
     <div class="capbox">
@@ -208,6 +216,13 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
 
   <section>
     <details>
+      <summary>Run history</summary>
+      <div id="historyList"></div>
+    </details>
+  </section>
+
+  <section>
+    <details>
       <summary>Ruleset</summary>
       <ul class="rules">
         <li>First encounter per area only. The two catches from one area are soul-linked.</li>
@@ -228,6 +243,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
     <div class="iorow">
       <button class="iobtn" id="exportBtn" type="button">Export save</button>
       <button class="iobtn" id="importBtn" type="button">Import save</button>
+      <button class="iobtn danger" id="newRunBtn" type="button">New attempt</button>
       <input type="file" id="importFile" accept=".json" style="display:none">
     </div>
   </section>
@@ -309,6 +325,8 @@ function normalize(st){
     st.beaten=CAPS.map(function(_,i){ return i<(st.capIdx||0); });
   }
   if(!st.clashMode) st.clashMode="any";
+  if(typeof st.attempt!=="number"||st.attempt<1) st.attempt=1;
+  if(!Array.isArray(st.history)) st.history=[];
   var t=Date.now();
   st.pairs.forEach(function(p,i){ if(!p.ts) p.ts=t-i; if(p.status==="Active"){ p.status="Party"; migratedIds.push(p.id); } });
   return st;
@@ -393,7 +411,7 @@ function doPush(){
   setSync("syncing");
   var rows=[];
   ids.forEach(function(id){
-    if(id==="_meta"){ rows.push({run:RUN,id:"_meta",data:{beaten:state.beaten,clashMode:state.clashMode}}); }
+    if(id==="_meta"){ rows.push({run:RUN,id:"_meta",data:{beaten:state.beaten,clashMode:state.clashMode,attempt:state.attempt,history:state.history}}); }
     else{ var p=findPair(id); if(p) rows.push({run:RUN,id:id,data:p}); }
   });
   var done=function(ok){
@@ -422,6 +440,8 @@ function applyCloud(rows){
       var m=r.data||{};
       if(Array.isArray(m.beaten)&&m.beaten.length===CAPS.length&&JSON.stringify(m.beaten)!==JSON.stringify(state.beaten)){ state.beaten=m.beaten; changed=true; }
       if(m.clashMode&&m.clashMode!==state.clashMode){ state.clashMode=m.clashMode; $("clashMode").value=state.clashMode; changed=true; }
+      if(typeof m.attempt==="number"&&m.attempt!==state.attempt){ state.attempt=m.attempt; changed=true; }
+      if(Array.isArray(m.history)&&JSON.stringify(m.history)!==JSON.stringify(state.history)){ state.history=m.history; changed=true; }
       return;
     }
     if(pend[r.id]) return;
@@ -666,7 +686,18 @@ function renderGrave(){
   });
 }
 
-function renderAll(){ renderCaps(); renderStats(); renderPairs(); renderGrave(); checkFormClash(); }
+function renderAttempt(){
+  $("attemptBadge").textContent="ATTEMPT "+state.attempt;
+  var list=$("historyList");
+  if(!state.history.length){ list.innerHTML='<div class="empty">No finished attempts — this is attempt '+state.attempt+'.</div>'; return; }
+  var out=[];
+  for(var i=state.history.length-1;i>=0;i--){
+    var h=state.history[i];
+    out.push('<div class="hist"><span class="hn">Attempt '+h.n+'</span><span>'+h.gyms+'/'+CAPS.length+' gyms · '+h.souls+' souls lost · '+h.pairs+' pairs</span><span class="hd">'+esc(h.date||"")+'</span></div>');
+  }
+  list.innerHTML=out.join("");
+}
+function renderAll(){ renderCaps(); renderStats(); renderPairs(); renderGrave(); renderAttempt(); checkFormClash(); }
 
 /* ---------- form ---------- */
 function fillTypeSelect(id,blank){
@@ -742,6 +773,36 @@ $("clashMode").addEventListener("change",function(e){
 $("clashMode").value=state.clashMode;
 
 /* ---------- export / import ---------- */
+function doNewAttempt(){
+  var gyms=0; state.beaten.forEach(function(x){ if(x)gyms++; });
+  var deadPairs=state.pairs.filter(function(p){ return p.status==="Dead"; }).length;
+  state.history.push({ n:state.attempt, gyms:gyms, souls:deadPairs*2, pairs:state.pairs.length, date:new Date().toISOString().slice(0,10) });
+  state.attempt++;
+  state.pairs=[];
+  state.beaten=CAPS.map(function(){ return false; });
+  dirty={}; pendingDeletes={};
+  save(); renderAll();
+  setSync("syncing");
+  sbDeleteRun().then(function(){ markAllDirty(); }).catch(function(){ markAllDirty(); });
+  setNote("good","✓ Attempt "+(state.attempt-1)+" archived — board reset for attempt "+state.attempt+".");
+}
+function armThen(btn, armedText, restoreText, fn){
+  if(!btn.classList.contains("armed")){
+    btn.classList.add("armed"); btn.textContent=armedText;
+    btn._disarm=setTimeout(function(){ btn.classList.remove("armed"); btn.textContent=restoreText(); },3000);
+    return;
+  }
+  clearTimeout(btn._disarm);
+  btn.classList.remove("armed"); btn.textContent=restoreText();
+  fn();
+}
+$("newRunBtn").addEventListener("click",function(){
+  armThen(this,"Wipe board — tap again",function(){return "New attempt";},doNewAttempt);
+});
+$("attemptBadge").addEventListener("click",function(){
+  armThen(this,"TAP AGAIN TO RESTART",function(){return "ATTEMPT "+state.attempt;},doNewAttempt);
+});
+
 $("exportBtn").addEventListener("click",function(){
   var blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
   var a=document.createElement("a");
