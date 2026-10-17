@@ -110,11 +110,15 @@ h2 .count{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--mute
 .mon.j .nm{color:var(--gold)} .mon.r .nm{color:var(--silver)}
 .mon.r{flex-direction:row-reverse;text-align:right}
 .statusrow{display:flex;gap:6px}
-.sbtn{flex:1;padding:8px 4px;border-radius:7px;border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--muted);background:var(--surface2)}
-.sbtn.on.Active{background:#15301c;border-color:var(--ok);color:#bcd8ae}
+.sbtn{flex:1;padding:8px 2px;border-radius:7px;border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted);background:var(--surface2)}
+.sbtn.on.Party{background:#15301c;border-color:var(--ok);color:#bcd8ae}
 .sbtn.on.Boxed{background:#2c2a18;border-color:#9a8a4c;color:#e0d6a0}
 .sbtn.on.Dead{background:#36141a;border-color:var(--dead);color:#f0b0a8}
 .sbtn.on.Missed{background:#1c2130;border-color:#4a5468;color:#aab4c8}
+.sbtn.on.NoUse{background:#2a1a2e;border-color:#7a5c8a;color:#cab0d8}
+.pair.nouse{opacity:.55}
+.delbtn{font-size:12px;color:var(--dead);font-weight:600;padding:4px 6px}
+.delbtn.armed{background:#36141a;border-radius:5px;color:#f0b0a8}
 .clashtag{display:inline-block;background:#36141a;border:1px solid var(--dead);color:#f0b0a8;font-size:11px;font-weight:700;border-radius:5px;padding:2px 7px;margin:4px 0 6px}
 
 /* graveyard */
@@ -142,7 +146,6 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
   <div class="titlebar">
     <div>
       <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK <span class="g">J</span><span style="color:var(--muted)">×</span><span class="s">R</span></h1></div>
-      <div class="sub">SoulSilver · Jared (gold) & Raiden (silver)</div>
       <div class="sub syncline"><span class="dot" id="syncDot"></span><span id="syncTxt">connecting…</span> · <button type="button" class="linkbtn" id="copyLink">copy share link</button></div>
     </div>
     <div class="capbox">
@@ -198,6 +201,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
       <summary>Ruleset</summary>
       <ul class="rules">
         <li>First encounter per area only. The two catches from one area are soul-linked.</li>
+        <li>Species clause: an encounter from an evolutionary line either player has already caught doesn't count as the area encounter — skip it and take the next new species.</li>
         <li>One faints → both are dead. Dead pairs never come back.</li>
         <li>Pairs enter and leave teams together — if Jared fields one half, Raiden fields the other.</li>
         <li>Type clause: a linked pair may not share a type. Shared type → skip the area.</li>
@@ -231,7 +235,9 @@ window.onerror=function(msg,src,line){
 
 var TYPES=["Normal","Fire","Water","Electric","Grass","Ice","Fighting","Poison","Ground","Flying","Psychic","Bug","Rock","Ghost","Dragon","Dark","Steel"];
 var TYPE_COLORS={Normal:"#A8A878",Fire:"#F08030",Water:"#6890F0",Electric:"#F8D030",Grass:"#78C850",Ice:"#98D8D8",Fighting:"#C03028",Poison:"#A040A0",Ground:"#E0C068",Flying:"#A890F0",Psychic:"#F85888",Bug:"#A8B820",Rock:"#B8A038",Ghost:"#705898",Dragon:"#7038F8",Dark:"#705848",Steel:"#B8B8D0"};
-var STATUSES=["Active","Boxed","Dead","Missed"];
+var STATUSES=["Party","Boxed","Dead","Missed","NoUse"];
+var STATUS_LABELS={Party:"In Party",Boxed:"Boxed",Dead:"Dead",Missed:"Missed",NoUse:"Can't Use"};
+function fixStatus(p){ if(p&&p.status==="Active") p.status="Party"; return p; }
 var CAPS=[
  {who:"Falkner",lv:13,reg:"johto"},{who:"Bugsy",lv:17,reg:"johto"},{who:"Whitney",lv:19,reg:"johto"},
  {who:"Morty",lv:25,reg:"johto"},{who:"Chuck",lv:31,reg:"johto"},{who:"Jasmine",lv:35,reg:"johto"},
@@ -295,9 +301,10 @@ function normalize(st){
   }
   if(!st.clashMode) st.clashMode="any";
   var t=Date.now();
-  st.pairs.forEach(function(p,i){ if(!p.ts) p.ts=t-i; });
+  st.pairs.forEach(function(p,i){ if(!p.ts) p.ts=t-i; if(p.status==="Active"){ p.status="Party"; migratedIds.push(p.id); } });
   return st;
 }
+var migratedIds=[];
 
 var state = loadLocal(KEY);
 if(!state && NEW_RUN) state = loadLocal("soullink-ss-v1"); /* migrate pre-sync save into the new run */
@@ -324,6 +331,10 @@ function sbUpsert(rows){
     body:JSON.stringify(rows)
   }).then(function(r){ if(!r.ok) throw new Error("push "+r.status); });
 }
+function sbDeleteRow(id){
+  return fetch(SB_URL+"/rest/v1/"+TABLE+"?run=eq."+RUN+"&id=eq."+encodeURIComponent(id),{method:"DELETE",headers:sbHeaders()})
+    .then(function(r){ if(!r.ok) throw new Error("delete "+r.status); });
+}
 function sbDeleteRun(){
   return fetch(SB_URL+"/rest/v1/"+TABLE+"?run=eq."+RUN,{method:"DELETE",headers:sbHeaders()})
     .then(function(r){ if(!r.ok) throw new Error("delete "+r.status); });
@@ -341,7 +352,26 @@ function findPair(id){
   return null;
 }
 
-var dirty={}, inflight=null, pushTimer=null, firstSyncDone=false;
+var dirty={}, inflight=null, pushTimer=null, firstSyncDone=false, pendingDeletes={};
+function deletePair(id){
+  var p=findPair(id); if(!p) return;
+  state.pairs.splice(state.pairs.indexOf(p),1);
+  delete dirty[id];
+  pendingDeletes[id]=true;
+  save(); renderAll();
+  flushDeletes();
+}
+function flushDeletes(){
+  var ids=Object.keys(pendingDeletes);
+  if(!ids.length) return;
+  setSync("syncing");
+  ids.forEach(function(id){
+    sbDeleteRow(id).then(function(){
+      delete pendingDeletes[id];
+      if(!Object.keys(pendingDeletes).length&&!Object.keys(dirty).length&&!inflight) setSync("ok");
+    }).catch(function(){ setSync("offline"); });
+  });
+}
 function markDirty(id){ dirty[id]=true; save(); schedulePush(); }
 function markAllDirty(){ dirty._meta=true; state.pairs.forEach(function(p){ dirty[p.id]=true; }); save(); schedulePush(); }
 function schedulePush(){ if(!pushTimer){ pushTimer=setTimeout(doPush,400); } }
@@ -370,6 +400,7 @@ function doPush(){
 function pendingIds(){
   var set={};
   for(var k in dirty) set[k]=true;
+  for(var d in pendingDeletes) set[d]=true;
   if(inflight) inflight.forEach(function(k){ set[k]=true; });
   return set;
 }
@@ -385,6 +416,7 @@ function applyCloud(rows){
       return;
     }
     if(pend[r.id]) return;
+    fixStatus(r.data);
     var local=findPair(r.id);
     if(!local){ state.pairs.push(r.data); changed=true; }
     else if(JSON.stringify(local)!==JSON.stringify(r.data)){
@@ -415,8 +447,9 @@ function poll(){
       }
     }
     applyCloud(rows);
+    if(Object.keys(pendingDeletes).length) flushDeletes();
     if(Object.keys(dirty).length||inflight) schedulePush();
-    else setSync("ok");
+    else if(!Object.keys(pendingDeletes).length) setSync("ok");
   }).catch(function(){ polling=false; setSync("offline"); });
 }
 setInterval(poll,5000);
@@ -511,9 +544,9 @@ function renderCaps(){
 
 function renderStats(){
   var act=0,box=0,dead=0,miss=0;
-  state.pairs.forEach(function(p){ if(p.status==="Active")act++; else if(p.status==="Boxed")box++; else if(p.status==="Dead")dead++; else miss++; });
+  state.pairs.forEach(function(p){ if(p.status==="Party")act++; else if(p.status==="Boxed")box++; else if(p.status==="Dead")dead++; else if(p.status==="Missed")miss++; });
   $("stats").innerHTML=
-    '<div class="stat'+(act>6?' warn':'')+'"><div class="n">'+act+'/6</div><div class="l">active pairs</div></div>'+
+    '<div class="stat'+(act>6?' warn':'')+'"><div class="n">'+act+'/6</div><div class="l">in party</div></div>'+
     '<div class="stat"><div class="n">'+box+'</div><div class="l">boxed</div></div>'+
     '<div class="stat warn"><div class="n">'+(dead*2)+'</div><div class="l">souls lost</div></div>'+
     '<div class="stat"><div class="n">'+miss+'</div><div class="l">skipped</div></div>';
@@ -534,20 +567,27 @@ function renderPairs(){
   if(!live.length){ wrap.innerHTML='<div class="empty">No pairs yet.</div>'; return; }
   live.forEach(function(p){
     var card=document.createElement("div");
-    card.className="pair"+(p.status==="Missed"?" missed":"");
+    card.className="pair"+(p.status==="Missed"?" missed":"")+(p.status==="NoUse"?" nouse":"");
     var hits=sharedTypes(p.j,p.r);
     card.innerHTML=
-      '<div class="loc"><span>'+esc(p.loc||"Unknown area")+'</span><button class="editbtn" type="button" data-act="edit">edit</button></div>'+
+      '<div class="loc"><span>'+esc(p.loc||"Unknown area")+'</span><span><button class="editbtn" type="button" data-act="edit">edit</button><button class="delbtn" type="button" data-act="del">delete</button></span></div>'+
       '<div class="linkrow">'+monHTML(p.j,"j",hits)+'<span class="ball" aria-hidden="true"></span>'+monHTML(p.r,"r",hits)+'</div>'+
       (hits.length?'<div class="clashtag">TYPE CLASH ('+hits.join(", ")+')</div>':'')+
       '<div class="statusrow">'+STATUSES.map(function(s){
-        return '<button class="sbtn'+(p.status===s?" on "+s:"")+'" type="button" data-act="status" data-s="'+s+'">'+s+'</button>';
+        return '<button class="sbtn'+(p.status===s?" on "+s:"")+'" type="button" data-act="status" data-s="'+s+'">'+STATUS_LABELS[s]+'</button>';
       }).join("")+'</div>';
     card.addEventListener("click",function(ev){
       var t=ev.target.closest("button"); if(!t)return;
       ev.stopPropagation();
       if(t.dataset.act==="status"){ p.status=t.dataset.s; markDirty(p.id); renderAll(); }
       else if(t.dataset.act==="edit"){ startEdit(p); }
+      else if(t.dataset.act==="del"){
+        if(t.classList.contains("armed")){ deletePair(p.id); }
+        else{
+          t.classList.add("armed"); t.textContent="tap again";
+          setTimeout(function(){ t.classList.remove("armed"); t.textContent="delete"; },2500);
+        }
+      }
     });
     wrap.appendChild(card);
   });
@@ -673,6 +713,8 @@ $("importFile").addEventListener("change",function(e){
   e.target.value="";
 });
 
+migratedIds.forEach(function(id){ dirty[id]=true; });
+if(migratedIds.length) schedulePush();
 renderAll();
 poll();
 })();
