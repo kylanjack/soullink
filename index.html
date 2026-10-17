@@ -10,7 +10,7 @@
 :root{
   --bg:#0d1220; --surface:#161d2e; --surface2:#1e2740; --line:#2a3550;
   --ink:#e9edf6; --muted:#8d99b5; --accent:#ffcb05;
-  --gold:#e3b341; --silver:#9db4cc;
+  --gold:#e3b341; --silver:#9db4cc; --crystal:#7fd8d8;
   --dead:#e3350d; --ok:#4dad5b;
   --ball-red:#e3350d;
 }
@@ -86,10 +86,12 @@ h2 .count{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--mute
 
 /* add form */
 .addcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
-.addgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.addgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .side{border-radius:8px;padding:10px;border:1px solid var(--line)}
 .side.jared{border-top:3px solid var(--gold)}
 .side.raiden{border-top:3px solid var(--silver)}
+.side.third{border-top:3px solid var(--crystal)}
+.side.third .who{color:var(--crystal)}
 .side .who{font-size:12px;font-weight:800;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
 .side.jared .who{color:var(--gold)} .side.raiden .who{color:var(--silver)}
 .side .row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
@@ -114,8 +116,13 @@ h2 .count{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--mute
 .mon img{width:48px;height:48px;image-rendering:pixelated;flex-shrink:0}
 .mon .spec{font-size:11px;color:var(--muted)}
 .mon .nm{font-weight:800;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mon.j .nm{color:var(--gold)} .mon.r .nm{color:var(--silver)}
+.mon.j .nm{color:var(--gold)} .mon.r .nm{color:var(--silver)} .mon.x .nm{color:var(--crystal)}
 .mon.r{flex-direction:row-reverse;text-align:right}
+.linkrow.trio{display:flex;flex-direction:column;gap:8px}
+.linkrow.trio .mon{flex-direction:row;text-align:left;border-left:3px solid var(--line);padding-left:10px}
+.linkrow.trio .mon.j{border-left-color:var(--gold)}
+.linkrow.trio .mon.r{border-left-color:var(--silver)}
+.linkrow.trio .mon.x{border-left-color:var(--crystal)}
 .statusrow{display:flex;gap:6px}
 .sbtn{flex:1;padding:8px 2px;border-radius:7px;border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted);background:var(--surface2)}
 .sbtn.on.Party{background:#15301c;border-color:var(--ok);color:#bcd8ae}
@@ -162,7 +169,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
 <header><div class="wrap">
   <div class="titlebar">
     <div>
-      <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK <span class="g">J</span><span style="color:var(--muted)">×</span><span class="s">R</span></h1><button class="attempt" id="attemptBadge" type="button">ATTEMPT 1</button></div>
+      <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK</h1><button class="attempt" id="attemptBadge" type="button">ATTEMPT 1</button></div>
       <div class="sub syncline"><span class="dot" id="syncDot"></span><span id="syncTxt">connecting…</span> · <button type="button" class="linkbtn" id="copyLink">copy share link</button></div>
     </div>
     <div class="capbox">
@@ -196,6 +203,13 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
           <input id="fRNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
           <div class="row"><select id="fRT1"></select><select id="fRT2"></select></div>
           <div class="lookupnote" id="noteR"></div>
+        </div>
+        <div class="side third">
+          <span class="who">KYLAN <button class="lookup" id="lkX" type="button">⟳ look up</button></span>
+          <input id="fXName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
+          <input id="fXNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
+          <div class="row"><select id="fXT1"></select><select id="fXT2"></select></div>
+          <div class="lookupnote" id="noteX"></div>
         </div>
       </div>
       <datalist id="dex"></datalist>
@@ -495,10 +509,20 @@ function $(id){ return document.getElementById(id); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 function typesOf(m){ var t=[]; if(m.t1)t.push(m.t1); if(m.t2)t.push(m.t2); return t; }
-function sharedTypes(j,r){
-  var a = state.clashMode==="primary" ? (j.t1?[j.t1]:[]) : typesOf(j);
-  var b = state.clashMode==="primary" ? (r.t1?[r.t1]:[]) : typesOf(r);
-  return a.filter(function(t){ return b.indexOf(t)!==-1; });
+function monsOf(p){ var a=[p.j,p.r]; if(p.x&&p.x.name) a.push(p.x); return a; }
+function soulsOf(p){ return monsOf(p).length; }
+function sharedTypes(mons){
+  var seen={}, hits={};
+  mons.forEach(function(m){
+    if(!m) return;
+    var ts = state.clashMode==="primary" ? (m.t1?[m.t1]:[]) : typesOf(m);
+    var mine={};
+    ts.forEach(function(t){
+      if(mine[t]) return; mine[t]=1;
+      if(seen[t]) hits[t]=1; else seen[t]=1;
+    });
+  });
+  return Object.keys(hits);
 }
 function chipsHTML(m,hits){
   return typesOf(m).map(function(t){
@@ -509,8 +533,10 @@ function chipsHTML(m,hits){
 
 /* ---------- local dex lookup (instant, offline) ---------- */
 function slugify(s){ return s.toLowerCase().trim().replace(/[.'\u2019]/g,"").replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,""); }
+var SIDE_IDS={j:{name:"fJName",t1:"fJT1",t2:"fJT2",note:"noteJ"},r:{name:"fRName",t1:"fRT1",t2:"fRT2",note:"noteR"},x:{name:"fXName",t1:"fXT1",t2:"fXT2",note:"noteX"}};
 function lookup(side){
-  var nameEl=$(side==="j"?"fJName":"fRName"), note=$(side==="j"?"noteJ":"noteR");
+  var ids=SIDE_IDS[side];
+  var nameEl=$(ids.name), note=$(ids.note);
   var raw=nameEl.value.trim();
   if(!raw){ note.textContent=""; return; }
   var slug=slugify(raw);
@@ -530,20 +556,22 @@ function lookup(side){
     }
     return;
   }
-  $(side==="j"?"fJT1":"fRT1").value=hit[1];
-  $(side==="j"?"fJT2":"fRT2").value=hit[2]||"";
+  $(ids.t1).value=hit[1];
+  $(ids.t2).value=hit[2]||"";
   pendingSprite[side]=SPRITE_BASE+hit[0]+".png";
   note.textContent="\u2713 #"+hit[0]+" "+prettify(slug)+" \u2014 "+hit[1]+(hit[2]?"/"+hit[2]:"");
   checkFormClash();
 }
-var pendingSprite={j:"",r:""};
+var pendingSprite={j:"",r:"",x:""};
 $("lkJ").addEventListener("click",function(){lookup("j");});
 $("lkR").addEventListener("click",function(){lookup("r");});
-$("fJName").addEventListener("blur",function(){ if(this.value.trim()&&!$("fJT1").value) lookup("j"); });
-$("fRName").addEventListener("blur",function(){ if(this.value.trim()&&!$("fRT1").value) lookup("r"); });
-/* picking from the dex autocomplete fires change → immediate lookup */
-$("fJName").addEventListener("change",function(){ if(this.value.trim()) lookup("j"); });
-$("fRName").addEventListener("change",function(){ if(this.value.trim()) lookup("r"); });
+$("lkX").addEventListener("click",function(){lookup("x");});
+["j","r","x"].forEach(function(side){
+  var ids=SIDE_IDS[side];
+  $(ids.name).addEventListener("blur",function(){ if(this.value.trim()&&!$(ids.t1).value) lookup(side); });
+  /* picking from the dex autocomplete fires change → immediate lookup */
+  $(ids.name).addEventListener("change",function(){ if(this.value.trim()) lookup(side); });
+});
 
 /* ---------- HGSS location autocomplete ---------- */
 var LOCS=(function(){
@@ -597,12 +625,12 @@ function renderCaps(){
 }
 
 function renderStats(){
-  var act=0,box=0,dead=0,miss=0;
-  state.pairs.forEach(function(p){ if(p.status==="Party")act++; else if(p.status==="Boxed")box++; else if(p.status==="Dead")dead++; else if(p.status==="Missed")miss++; });
+  var act=0,box=0,dead=0,miss=0,deadSouls=0;
+  state.pairs.forEach(function(p){ if(p.status==="Party")act++; else if(p.status==="Boxed")box++; else if(p.status==="Dead"){dead++; deadSouls+=soulsOf(p);} else if(p.status==="Missed")miss++; });
   $("stats").innerHTML=
     '<div class="stat'+(act>6?' warn':'')+'"><div class="n">'+act+'/6</div><div class="l">in party</div></div>'+
     '<div class="stat"><div class="n">'+box+'</div><div class="l">boxed</div></div>'+
-    '<div class="stat warn"><div class="n">'+(dead*2)+'</div><div class="l">souls lost</div></div>'+
+    '<div class="stat warn"><div class="n">'+deadSouls+'</div><div class="l">souls lost</div></div>'+
     '<div class="stat"><div class="n">'+miss+'</div><div class="l">skipped</div></div>';
 }
 
@@ -645,10 +673,14 @@ function renderPairs(){
 function makeCard(p){
     var card=document.createElement("div");
     card.className="pair"+(p.status==="Missed"?" missed":"")+(p.status==="NoUse"?" nouse":"");
-    var hits=sharedTypes(p.j,p.r);
+    var hits=sharedTypes(monsOf(p));
+    var trio=!!(p.x&&p.x.name);
+    var linkrow = trio
+      ? '<div class="linkrow trio">'+monHTML(p.j,"j",hits)+monHTML(p.r,"r",hits)+monHTML(p.x,"x",hits)+'</div>'
+      : '<div class="linkrow">'+monHTML(p.j,"j",hits)+'<span class="ball" aria-hidden="true"></span>'+monHTML(p.r,"r",hits)+'</div>';
     card.innerHTML=
       '<div class="loc"><span>'+esc(p.loc||"Unknown area")+'</span><span><button class="editbtn" type="button" data-act="edit">edit</button><button class="delbtn" type="button" data-act="del">delete</button></span></div>'+
-      '<div class="linkrow">'+monHTML(p.j,"j",hits)+'<span class="ball" aria-hidden="true"></span>'+monHTML(p.r,"r",hits)+'</div>'+
+      linkrow+
       (hits.length?'<div class="clashtag">TYPE CLASH ('+hits.join(", ")+')</div>':'')+
       '<div class="statusrow">'+STATUSES.map(function(s){
         return '<button class="sbtn'+(p.status===s?" on "+s:"")+'" type="button" data-act="status" data-s="'+s+'">'+STATUS_LABELS[s]+'</button>';
@@ -673,11 +705,12 @@ function renderGrave(){
   var wrap=$("graveyard"); wrap.innerHTML="";
   var dead=state.pairs.filter(function(p){return p.status==="Dead";});
   dead.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-  $("graveCount").textContent=dead.length?("("+dead.length+" pairs / "+dead.length*2+" souls)"):"";
+  var gs=0; dead.forEach(function(p){ gs+=soulsOf(p); });
+  $("graveCount").textContent=dead.length?("("+dead.length+" pairs / "+gs+" souls)"):"";
   if(!dead.length){ wrap.innerHTML='<div class="empty">No deaths yet.</div>'; return; }
   dead.forEach(function(p){
     var row=document.createElement("div"); row.className="grave";
-    row.innerHTML='<span class="ball dead" aria-hidden="true"></span><div style="flex:1"><div class="names">'+esc(p.j.nick||p.j.name||"?")+' × '+esc(p.r.nick||p.r.name||"?")+'</div><div class="where">'+esc(p.loc||"")+'</div></div>'+
+    row.innerHTML='<span class="ball dead" aria-hidden="true"></span><div style="flex:1"><div class="names">'+monsOf(p).map(function(m){ return esc((m&&(m.nick||m.name))||"?"); }).join(" × ")+'</div><div class="where">'+esc(p.loc||"")+'</div></div>'+
       '<button class="sbtn" type="button" style="flex:0 0 auto">undo</button>';
     row.querySelector("button").addEventListener("click",function(ev){
       ev.stopPropagation(); p.status="Boxed"; markDirty(p.id); renderAll();
@@ -705,40 +738,45 @@ function fillTypeSelect(id,blank){
 }
 fillTypeSelect("fJT1","Type 1"); fillTypeSelect("fJT2","Type 2");
 fillTypeSelect("fRT1","Type 1"); fillTypeSelect("fRT2","Type 2");
+fillTypeSelect("fXT1","Type 1"); fillTypeSelect("fXT2","Type 2");
 
 function formMons(){
+  var x={name:$("fXName").value.trim(), nick:$("fXNick").value.trim(), t1:$("fXT1").value, t2:$("fXT2").value, sprite:pendingSprite.x};
   return {
     j:{name:$("fJName").value.trim(), nick:$("fJNick").value.trim(), t1:$("fJT1").value, t2:$("fJT2").value, sprite:pendingSprite.j},
-    r:{name:$("fRName").value.trim(), nick:$("fRNick").value.trim(), t1:$("fRT1").value, t2:$("fRT2").value, sprite:pendingSprite.r}
+    r:{name:$("fRName").value.trim(), nick:$("fRNick").value.trim(), t1:$("fRT1").value, t2:$("fRT2").value, sprite:pendingSprite.r},
+    x: x.name ? x : null
   };
 }
 function setNote(cls,msg){ var n=$("formNote"); n.className="formnote"+(cls?" "+cls:""); n.textContent=msg||""; }
 function checkFormClash(){
   var m=formMons();
   if(!(m.j.t1&&m.r.t1)){ setNote("",""); return; }
-  var hits=sharedTypes(m.j,m.r);
+  var hits=sharedTypes([m.j,m.r].concat(m.x?[m.x]:[]));
   if(hits.length){ setNote("bad","Shared type ("+hits.join(", ")+") — will be logged as Missed."); }
   else{ setNote("good","✓ No type overlap."); }
 }
-["fJT1","fJT2","fRT1","fRT2"].forEach(function(id){ $(id).addEventListener("change",checkFormClash); });
+["fJT1","fJT2","fRT1","fRT2","fXT1","fXT2"].forEach(function(id){ $(id).addEventListener("change",checkFormClash); });
 
 function startEdit(p){
   editingId=p.id;
   $("fLoc").value=p.loc;
   $("fJName").value=p.j.name; $("fJNick").value=p.j.nick||""; $("fJT1").value=p.j.t1||""; $("fJT2").value=p.j.t2||"";
   $("fRName").value=p.r.name; $("fRNick").value=p.r.nick||""; $("fRT1").value=p.r.t1||""; $("fRT2").value=p.r.t2||"";
-  pendingSprite.j=p.j.sprite||""; pendingSprite.r=p.r.sprite||"";
+  var x=p.x||{};
+  $("fXName").value=x.name||""; $("fXNick").value=x.nick||""; $("fXT1").value=x.t1||""; $("fXT2").value=x.t2||"";
+  pendingSprite.j=p.j.sprite||""; pendingSprite.r=p.r.sprite||""; pendingSprite.x=x.sprite||"";
   $("addBtnLabel").textContent="Save changes";
   checkFormClash();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 function clearForm(){
   editingId=null;
-  ["fLoc","fJName","fJNick","fRName","fRNick"].forEach(function(id){$(id).value="";});
-  ["fJT1","fJT2","fRT1","fRT2"].forEach(function(id){$(id).value="";});
+  ["fLoc","fJName","fJNick","fRName","fRNick","fXName","fXNick"].forEach(function(id){$(id).value="";});
+  ["fJT1","fJT2","fRT1","fRT2","fXT1","fXT2"].forEach(function(id){$(id).value="";});
   ["fLoc","fJName","fRName"].forEach(function(id){$(id).classList.remove("miss");});
-  pendingSprite.j=""; pendingSprite.r="";
-  $("noteJ").textContent=""; $("noteR").textContent=""; $("locNote").textContent="";
+  pendingSprite.j=""; pendingSprite.r=""; pendingSprite.x="";
+  $("noteJ").textContent=""; $("noteR").textContent=""; $("noteX").textContent=""; $("locNote").textContent="";
   $("addBtnLabel").textContent="Link the pair";
   checkFormClash();
 }
@@ -756,10 +794,10 @@ $("addBtn").addEventListener("click",function(){
   if(editingId){
     var p=null;
     for(var i=0;i<state.pairs.length;i++){ if(state.pairs[i].id===editingId){ p=state.pairs[i]; break; } }
-    if(p){ p.loc=loc; p.j=m.j; p.r=m.r; markDirty(p.id); }
+    if(p){ p.loc=loc; p.j=m.j; p.r=m.r; p.x=m.x; markDirty(p.id); }
   }else{
-    var hits=sharedTypes(m.j,m.r);
-    var np={id:uid(),ts:Date.now(),loc:loc,j:m.j,r:m.r,status:hits.length?"Missed":"Boxed"};
+    var hits=sharedTypes([m.j,m.r].concat(m.x?[m.x]:[]));
+    var np={id:uid(),ts:Date.now(),loc:loc,j:m.j,r:m.r,x:m.x,status:hits.length?"Missed":"Boxed"};
     state.pairs.unshift(np);
     markDirty(np.id);
   }
@@ -775,8 +813,8 @@ $("clashMode").value=state.clashMode;
 /* ---------- export / import ---------- */
 function doNewAttempt(){
   var gyms=0; state.beaten.forEach(function(x){ if(x)gyms++; });
-  var deadPairs=state.pairs.filter(function(p){ return p.status==="Dead"; }).length;
-  state.history.push({ n:state.attempt, gyms:gyms, souls:deadPairs*2, pairs:state.pairs.length, date:new Date().toISOString().slice(0,10) });
+  var souls=0; state.pairs.forEach(function(p){ if(p.status==="Dead") souls+=soulsOf(p); });
+  state.history.push({ n:state.attempt, gyms:gyms, souls:souls, pairs:state.pairs.length, date:new Date().toISOString().slice(0,10) });
   state.attempt++;
   state.pairs=[];
   state.beaten=CAPS.map(function(){ return false; });
