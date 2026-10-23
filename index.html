@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>SOUL LINK — SoulSilver</title>
+<title>SOUL LINK</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -43,6 +43,9 @@ h1 .g{color:var(--gold)} h1 .s{color:var(--silver)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
 .dot.ok{background:var(--ok)} .dot.syncing{background:var(--accent)} .dot.offline{background:var(--dead)}
 .linkbtn{color:var(--accent);font-size:12px;font-weight:600;padding:2px 4px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px;max-width:360px}
+.prow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .attempt{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:3px 8px;white-space:nowrap;cursor:pointer}
 .attempt.armed{background:#36141a;border-color:var(--dead);color:#f0b0a8}
 .hist{display:flex;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:13px}
@@ -171,7 +174,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
   <div class="titlebar">
     <div>
       <div class="titleline"><span class="ball" aria-hidden="true"></span><h1>SOUL LINK</h1><button class="attempt" id="attemptBadge" type="button">ATTEMPT 1</button></div>
-      <div class="sub syncline"><span class="dot" id="syncDot"></span><span id="syncTxt">connecting…</span> · <button type="button" class="linkbtn" id="copyLink">copy share link</button></div>
+      <div class="sub syncline"><span class="dot" id="syncDot"></span><span id="syncTxt">connecting…</span> · <button type="button" class="linkbtn" id="copyLink">copy share link</button> · <button type="button" class="linkbtn" id="playersBtn">players</button></div>
     </div>
     <div class="capbox">
       <span class="lbl">LEVEL CAP</span>
@@ -180,6 +183,12 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
     </div>
   </div>
   <div class="caprail" id="caprail"></div>
+  <div class="pcard" id="playersCard" style="display:none">
+    <div class="prow"><span class="pdot" style="background:var(--gold)"></span><input id="pP1" placeholder="Player 1" maxlength="20"></div>
+    <div class="prow"><span class="pdot" style="background:var(--silver)"></span><input id="pP2" placeholder="Player 2" maxlength="20"></div>
+    <div class="prow"><span class="pdot" style="background:var(--crystal)"></span><input id="pP3" placeholder="Player 3 (blank = 2-player run)" maxlength="20"></div>
+    <button type="button" class="primarybtn" id="playersDone" style="margin-top:8px">Done</button>
+  </div>
 </div></header>
 
 <div class="wrap">
@@ -192,21 +201,21 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
       <datalist id="locs"></datalist>
       <div class="addgrid">
         <div class="side jared">
-          <span class="who">JARED <button class="lookup" id="lkJ" type="button">⟳ look up</button></span>
+          <span class="who"><span id="whoJ">PLAYER 1</span> <button class="lookup" id="lkJ" type="button">⟳ look up</button></span>
           <input id="fJName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
           <input id="fJNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
           <div class="row"><select id="fJT1"></select><select id="fJT2"></select></div>
           <div class="lookupnote" id="noteJ"></div>
         </div>
         <div class="side raiden">
-          <span class="who">RAIDEN <button class="lookup" id="lkR" type="button">⟳ look up</button></span>
+          <span class="who"><span id="whoR">PLAYER 2</span> <button class="lookup" id="lkR" type="button">⟳ look up</button></span>
           <input id="fRName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
           <input id="fRNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
           <div class="row"><select id="fRT1"></select><select id="fRT2"></select></div>
           <div class="lookupnote" id="noteR"></div>
         </div>
-        <div class="side third">
-          <span class="who">KYLAN <button class="lookup" id="lkX" type="button">⟳ look up</button></span>
+        <div class="side third" id="sideX">
+          <span class="who"><span id="whoX">PLAYER 3</span> <button class="lookup" id="lkX" type="button">⟳ look up</button></span>
           <input id="fXName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
           <input id="fXNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
           <div class="row"><select id="fXT1"></select><select id="fXT2"></select></div>
@@ -343,15 +352,23 @@ function normalize(st){
   if(!st.clashMode) st.clashMode="any";
   if(typeof st.attempt!=="number"||st.attempt<1) st.attempt=1;
   if(!Array.isArray(st.history)) st.history=[];
+  if(!st.players||typeof st.players!=="object") st.players={};
+  st.players={ p1:(st.players.p1||"Player 1").slice(0,20), p2:(st.players.p2||"Player 2").slice(0,20), p3:(st.players.p3||"").slice(0,20) };
+  st.beaten=fixBeaten(st.beaten);
   var t=Date.now();
   st.pairs.forEach(function(p,i){ if(!p.ts) p.ts=t-i; if(p.status==="Active"){ p.status="Party"; migratedIds.push(p.id); } });
   return st;
 }
+function zeros(n){ var a=[]; for(var i=0;i<n;i++)a.push(false); return a; }
+function fixLen(arr,n){ arr=Array.isArray(arr)?arr.slice(0,n):[]; while(arr.length<n)arr.push(false); return arr.map(function(x){ return !!x; }); }
+function fixBeaten(b){
+  if(Array.isArray(b)) return fixLen(b,CAPS.length);
+  if(b&&Array.isArray(b.ss)) return fixLen(b.ss,CAPS.length);
+  return zeros(CAPS.length);
+}
 var migratedIds=[];
 
-var state = loadLocal(KEY);
-if(!state && NEW_RUN) state = loadLocal("soullink-ss-v1"); /* migrate pre-sync save into the new run */
-state = normalize(state || { pairs:[], clashMode:"any" });
+var state = normalize(loadLocal(KEY) || { pairs:[], clashMode:"any" });
 var editingId=null;
 
 /* ---------- Supabase sync ---------- */
@@ -427,7 +444,7 @@ function doPush(){
   setSync("syncing");
   var rows=[];
   ids.forEach(function(id){
-    if(id==="_meta"){ rows.push({run:RUN,id:"_meta",data:{beaten:state.beaten,clashMode:state.clashMode,attempt:state.attempt,history:state.history}}); }
+    if(id==="_meta"){ rows.push({run:RUN,id:"_meta",data:{beaten:state.beaten,clashMode:state.clashMode,attempt:state.attempt,history:state.history,players:state.players}}); }
     else{ var p=findPair(id); if(p) rows.push({run:RUN,id:id,data:p}); }
   });
   var done=function(ok){
@@ -454,7 +471,8 @@ function applyCloud(rows){
     if(r.id==="_meta"){
       if(pend._meta) return;
       var m=r.data||{};
-      if(Array.isArray(m.beaten)&&m.beaten.length===CAPS.length&&JSON.stringify(m.beaten)!==JSON.stringify(state.beaten)){ state.beaten=m.beaten; changed=true; }
+      if(m.beaten){ var nb=fixBeaten(m.beaten); if(JSON.stringify(nb)!==JSON.stringify(state.beaten)){ state.beaten=nb; changed=true; } }
+      if(m.players&&JSON.stringify(m.players)!==JSON.stringify(state.players)){ state.players={p1:m.players.p1||"Player 1",p2:m.players.p2||"Player 2",p3:m.players.p3||""}; changed=true; }
       if(m.clashMode&&m.clashMode!==state.clashMode){ state.clashMode=m.clashMode; $("clashMode").value=state.clashMode; changed=true; }
       if(typeof m.attempt==="number"&&m.attempt!==state.attempt){ state.attempt=m.attempt; changed=true; }
       if(Array.isArray(m.history)&&JSON.stringify(m.history)!==JSON.stringify(state.history)){ state.history=m.history; changed=true; }
@@ -587,8 +605,7 @@ var LOCS=(function(){
   return out;
 })();
 (function(){
-  var dl=$("locs");
-  dl.innerHTML=LOCS.map(function(l){ return '<option value="'+esc(l)+'">'; }).join("");
+  $("locs").innerHTML=LOCS.map(function(l){ return '<option value="'+esc(l)+'">'; }).join("");
 })();
 function checkLocDup(){
   var v=$("fLoc").value.trim().toLowerCase(), note=$("locNote");
@@ -611,18 +628,19 @@ $("fLoc").addEventListener("change",checkLocDup);
 /* ---------- render ---------- */
 function renderCaps(){
   var rail=$("caprail"); rail.innerHTML="";
+  var B=state.beaten;
   var curIdx=-1;
-  for(var i=0;i<CAPS.length;i++){ if(!state.beaten[i]){ curIdx=i; break; } }
+  for(var i=0;i<CAPS.length;i++){ if(!B[i]){ curIdx=i; break; } }
   CAPS.forEach(function(c,i){
     var b=document.createElement("button");
     b.type="button";
-    b.className="capstop "+c.reg+(state.beaten[i]?" done":"")+(i===curIdx?" now":"");
-    b.innerHTML='<span class="who">'+(state.beaten[i]?"\u2713 ":"")+esc(c.who)+'</span><span class="lv">'+c.lv+'</span>';
-    b.addEventListener("click",function(){ state.beaten[i]=!state.beaten[i]; markDirty("_meta"); renderCaps(); });
+    b.className="capstop "+c.reg+(B[i]?" done":"")+(i===curIdx?" now":"");
+    b.innerHTML='<span class="who">'+(B[i]?"\u2713 ":"")+esc(c.who)+'</span><span class="lv">'+c.lv+'</span>';
+    b.addEventListener("click",function(){ B[i]=!B[i]; markDirty("_meta"); renderCaps(); });
     rail.appendChild(b);
   });
-  var n=0; state.beaten.forEach(function(x){ if(x)n++; });
-  if(curIdx===-1){ $("capNum").textContent="\u2713"; $("capVs").textContent="all 18 defeated"; }
+  var n=0; B.forEach(function(x){ if(x)n++; });
+  if(curIdx===-1){ $("capNum").textContent="\u2713"; $("capVs").textContent="all "+CAPS.length+" defeated"; }
   else{ $("capNum").textContent=CAPS[curIdx].lv; $("capVs").textContent="vs "+CAPS[curIdx].who+" \u00b7 "+n+"/"+CAPS.length; }
 }
 
@@ -732,7 +750,13 @@ function renderAttempt(){
   }
   list.innerHTML=out.join("");
 }
-function renderAll(){ renderCaps(); renderStats(); renderPairs(); renderGrave(); renderAttempt(); checkFormClash(); }
+function renderPlayers(){
+  $("whoJ").textContent=state.players.p1.toUpperCase();
+  $("whoR").textContent=state.players.p2.toUpperCase();
+  $("whoX").textContent=(state.players.p3||"Player 3").toUpperCase();
+  $("sideX").style.display=state.players.p3?"":"none";
+}
+function renderAll(){ renderPlayers(); renderCaps(); renderStats(); renderPairs(); renderGrave(); renderAttempt(); checkFormClash(); }
 
 /* ---------- form ---------- */
 function fillTypeSelect(id,blank){
@@ -788,7 +812,7 @@ $("addBtn").addEventListener("click",function(){
   var missing=[];
   [["fLoc",$("fLoc").value.trim()],["fJName",m.j.name],["fRName",m.r.name]].forEach(function(x){
     $(x[0]).classList.toggle("miss",!x[1]);
-    if(!x[1]) missing.push(x[0]==="fLoc"?"location":(x[0]==="fJName"?"Jared's mon":"Raiden's mon"));
+    if(!x[1]) missing.push(x[0]==="fLoc"?"location":(x[0]==="fJName"?state.players.p1+"'s mon":state.players.p2+"'s mon"));
   });
   if(missing.length){ setNote("bad","Missing: "+missing.join(", ")+"."); return; }
   var loc=$("fLoc").value.trim();
@@ -819,7 +843,7 @@ function doNewAttempt(){
   state.history.push({ n:state.attempt, gyms:gyms, souls:souls, pairs:state.pairs.length, date:new Date().toISOString().slice(0,10) });
   state.attempt++;
   state.pairs=[];
-  state.beaten=CAPS.map(function(){ return false; });
+  state.beaten=fixBeaten({});
   dirty={}; pendingDeletes={};
   save(); renderAll();
   setSync("syncing");
@@ -870,6 +894,23 @@ $("importFile").addEventListener("change",function(e){
   e.target.value="";
 });
 
+$("playersBtn").addEventListener("click",function(){
+  var card=$("playersCard");
+  if(card.style.display==="none"){
+    $("pP1").value=state.players.p1; $("pP2").value=state.players.p2; $("pP3").value=state.players.p3;
+    card.style.display="";
+  }else card.style.display="none";
+});
+$("playersDone").addEventListener("click",function(){
+  state.players={
+    p1:($("pP1").value.trim()||"Player 1").slice(0,20),
+    p2:($("pP2").value.trim()||"Player 2").slice(0,20),
+    p3:$("pP3").value.trim().slice(0,20)
+  };
+  $("playersCard").style.display="none";
+  markDirty("_meta");
+  renderAll();
+});
 migratedIds.forEach(function(id){ dirty[id]=true; });
 if(migratedIds.length) schedulePush();
 renderAll();
