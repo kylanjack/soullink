@@ -101,6 +101,8 @@ h2 .count{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--mute
 .side .row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
 .lookup{font-size:11px;color:var(--accent);font-weight:600;padding:2px 4px}
 .lookupnote{font-size:11px;color:var(--muted);margin-top:4px;min-height:14px}
+.shinybox{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:6px;cursor:pointer}
+.shinybox input{width:auto;accent-color:var(--accent)}
 .fullrow{margin-bottom:10px}
 .formnote{margin-top:10px;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;display:none}
 .formnote.bad{display:block;background:#36141a;border:1px solid var(--dead);color:#f0b0a8}
@@ -204,6 +206,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
           <span class="who"><span id="whoJ">PLAYER 1</span> <button class="lookup" id="lkJ" type="button">⟳ look up</button></span>
           <input id="fJName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
           <input id="fJNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
+          <label class="shinybox"><input type="checkbox" id="fJShiny"> \u2728 shiny</label>
           <div class="row"><select id="fJT1"></select><select id="fJT2"></select></div>
           <div class="lookupnote" id="noteJ"></div>
         </div>
@@ -211,6 +214,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
           <span class="who"><span id="whoR">PLAYER 2</span> <button class="lookup" id="lkR" type="button">⟳ look up</button></span>
           <input id="fRName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
           <input id="fRNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
+          <label class="shinybox"><input type="checkbox" id="fRShiny"> \u2728 shiny</label>
           <div class="row"><select id="fRT1"></select><select id="fRT2"></select></div>
           <div class="lookupnote" id="noteR"></div>
         </div>
@@ -218,6 +222,7 @@ summary::before{content:"▸ ";color:var(--accent)} details[open] summary::befor
           <span class="who"><span id="whoX">PLAYER 3</span> <button class="lookup" id="lkX" type="button">⟳ look up</button></span>
           <input id="fXName" list="dex" autocomplete="off" placeholder="Species (auto-fills type + sprite)">
           <input id="fXNick" autocomplete="off" placeholder="Nickname (optional)" style="margin-top:6px">
+          <label class="shinybox"><input type="checkbox" id="fXShiny"> \u2728 shiny</label>
           <div class="row"><select id="fXT1"></select><select id="fXT2"></select></div>
           <div class="lookupnote" id="noteX"></div>
         </div>
@@ -562,7 +567,7 @@ function lookup(side){
   var slug=slugify(raw);
   var hit=DEX[slug];
   if(!hit){
-    pendingSprite[side]="";
+    pendingDex[side]=0;
     var sug=nearest(slug);
     if(sug){
       note.textContent="";
@@ -578,11 +583,11 @@ function lookup(side){
   }
   $(ids.t1).value=hit[1];
   $(ids.t2).value=hit[2]||"";
-  pendingSprite[side]=SPRITE_BASE+hit[0]+".png";
+  pendingDex[side]=hit[0];
   note.textContent="\u2713 #"+hit[0]+" "+prettify(slug)+" \u2014 "+hit[1]+(hit[2]?"/"+hit[2]:"");
   checkFormClash();
 }
-var pendingSprite={j:"",r:"",x:""};
+var pendingDex={j:0,r:0,x:0};
 $("lkJ").addEventListener("click",function(){lookup("j");});
 $("lkR").addEventListener("click",function(){lookup("r");});
 $("lkX").addEventListener("click",function(){lookup("x");});
@@ -654,11 +659,21 @@ function renderStats(){
     '<div class="stat"><div class="n">'+miss+'</div><div class="l">skipped</div></div>';
 }
 
+function legacyDex(url){
+  if(!url) return 0;
+  var mm=url.match(/pokemon\/(?:shiny\/)?(\d+)\.png/);
+  return mm?parseInt(mm[1],10):0;
+}
+function spriteURL(m){
+  var id=m.dex||legacyDex(m.sprite);
+  if(!id) return m.sprite||"";
+  return SPRITE_BASE+(m.shiny?"shiny/":"")+id+".png";
+}
 function monHTML(m,cls,hits){
-  var img=m.sprite?'<img src="'+esc(m.sprite)+'" alt="" onerror="this.style.display=\'none\'">':"";
-  var label=m.nick||m.name||"—";
+  var src=spriteURL(m);
+  var img=src?'<img src="'+esc(src)+'" alt="" onerror="this.style.display=\'none\'">':"";
   var spec=(m.nick&&m.name)?'<div class="spec">'+esc(m.name)+'</div>':"";
-  return '<div class="mon '+cls+'">'+img+'<div><div class="nm">'+esc(label)+'</div>'+spec+chipsHTML(m,hits)+'</div></div>';
+  return '<div class="mon '+cls+'">'+img+'<div><div class="nm">'+esc(m.nick||m.name||"—")+(m.shiny?' <span title="shiny">✨</span>':'')+'</div>'+spec+chipsHTML(m,hits)+'</div></div>';
 }
 
 var UIKEY="soullink-ui:"+RUN;
@@ -730,7 +745,7 @@ function renderGrave(){
   if(!dead.length){ wrap.innerHTML='<div class="empty">No deaths yet.</div>'; return; }
   dead.forEach(function(p){
     var row=document.createElement("div"); row.className="grave";
-    row.innerHTML='<span class="ball dead" aria-hidden="true"></span><div style="flex:1"><div class="names">'+monsOf(p).map(function(m){ return esc((m&&(m.nick||m.name))||"?"); }).join(" × ")+'</div><div class="where">'+esc(p.loc||"")+'</div></div>'+
+    row.innerHTML='<span class="ball dead" aria-hidden="true"></span><div style="flex:1"><div class="names">'+monsOf(p).map(function(m){ return esc((m&&(m.nick||m.name))||"?")+((m&&m.shiny)?" ✨":""); }).join(" × ")+'</div><div class="where">'+esc(p.loc||"")+'</div></div>'+
       '<button class="sbtn" type="button" style="flex:0 0 auto">undo</button>';
     row.querySelector("button").addEventListener("click",function(ev){
       ev.stopPropagation(); p.status="Boxed"; markDirty(p.id); renderAll();
@@ -767,10 +782,10 @@ fillTypeSelect("fRT1","Type 1"); fillTypeSelect("fRT2","Type 2");
 fillTypeSelect("fXT1","Type 1"); fillTypeSelect("fXT2","Type 2");
 
 function formMons(){
-  var x={name:$("fXName").value.trim(), nick:$("fXNick").value.trim(), t1:$("fXT1").value, t2:$("fXT2").value, sprite:pendingSprite.x};
+  var x={name:$("fXName").value.trim(), nick:$("fXNick").value.trim(), t1:$("fXT1").value, t2:$("fXT2").value, dex:pendingDex.x||0, shiny:$("fXShiny").checked};
   return {
-    j:{name:$("fJName").value.trim(), nick:$("fJNick").value.trim(), t1:$("fJT1").value, t2:$("fJT2").value, sprite:pendingSprite.j},
-    r:{name:$("fRName").value.trim(), nick:$("fRNick").value.trim(), t1:$("fRT1").value, t2:$("fRT2").value, sprite:pendingSprite.r},
+    j:{name:$("fJName").value.trim(), nick:$("fJNick").value.trim(), t1:$("fJT1").value, t2:$("fJT2").value, dex:pendingDex.j||0, shiny:$("fJShiny").checked},
+    r:{name:$("fRName").value.trim(), nick:$("fRNick").value.trim(), t1:$("fRT1").value, t2:$("fRT2").value, dex:pendingDex.r||0, shiny:$("fRShiny").checked},
     x: x.name ? x : null
   };
 }
@@ -791,7 +806,8 @@ function startEdit(p){
   $("fRName").value=p.r.name; $("fRNick").value=p.r.nick||""; $("fRT1").value=p.r.t1||""; $("fRT2").value=p.r.t2||"";
   var x=p.x||{};
   $("fXName").value=x.name||""; $("fXNick").value=x.nick||""; $("fXT1").value=x.t1||""; $("fXT2").value=x.t2||"";
-  pendingSprite.j=p.j.sprite||""; pendingSprite.r=p.r.sprite||""; pendingSprite.x=x.sprite||"";
+  $("fJShiny").checked=!!p.j.shiny; $("fRShiny").checked=!!p.r.shiny; $("fXShiny").checked=!!x.shiny;
+  pendingDex.j=p.j.dex||legacyDex(p.j.sprite); pendingDex.r=p.r.dex||legacyDex(p.r.sprite); pendingDex.x=x.dex||legacyDex(x.sprite);
   $("addBtnLabel").textContent="Save changes";
   checkFormClash();
   window.scrollTo({top:0,behavior:"smooth"});
@@ -801,7 +817,8 @@ function clearForm(){
   ["fLoc","fJName","fJNick","fRName","fRNick","fXName","fXNick"].forEach(function(id){$(id).value="";});
   ["fJT1","fJT2","fRT1","fRT2","fXT1","fXT2"].forEach(function(id){$(id).value="";});
   ["fLoc","fJName","fRName"].forEach(function(id){$(id).classList.remove("miss");});
-  pendingSprite.j=""; pendingSprite.r=""; pendingSprite.x="";
+  pendingDex.j=0; pendingDex.r=0; pendingDex.x=0;
+  $("fJShiny").checked=false; $("fRShiny").checked=false; $("fXShiny").checked=false;
   $("noteJ").textContent=""; $("noteR").textContent=""; $("noteX").textContent=""; $("locNote").textContent="";
   $("addBtnLabel").textContent="Link the pair";
   checkFormClash();
