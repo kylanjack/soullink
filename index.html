@@ -827,9 +827,12 @@ function clearForm(){
 $("addBtn").addEventListener("click",function(){
   var m=formMons();
   var missing=[];
-  [["fLoc",$("fLoc").value.trim()],["fJName",m.j.name],["fRName",m.r.name]].forEach(function(x){
+  var req=[["fLoc",$("fLoc").value.trim(),"location"],["fJName",m.j.name,state.players.p1+"'s mon"],["fRName",m.r.name,state.players.p2+"'s mon"]];
+  if(state.players.p3) req.push(["fXName",m.x&&m.x.name,state.players.p3+"'s mon"]);
+  else $("fXName").classList.remove("miss");
+  req.forEach(function(x){
     $(x[0]).classList.toggle("miss",!x[1]);
-    if(!x[1]) missing.push(x[0]==="fLoc"?"location":(x[0]==="fJName"?state.players.p1+"'s mon":state.players.p2+"'s mon"));
+    if(!x[1]) missing.push(x[2]);
   });
   if(missing.length){ setNote("bad","Missing: "+missing.join(", ")+"."); return; }
   var loc=$("fLoc").value.trim();
